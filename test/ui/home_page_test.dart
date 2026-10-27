@@ -30,8 +30,7 @@ void main() {
     AppStore? store,
   }) {
     runner = FakeRunner({
-      '/bin/alcf-tokens get-token': (_) =>
-          RunResult(tokenOk ? 0 : 1, '', ''),
+      '/bin/alcf-tokens get-token': (_) => RunResult(tokenOk ? 0 : 1, '', ''),
     });
     started = [];
     return AppState(
@@ -58,14 +57,19 @@ void main() {
     );
   }
 
-  Future<AppState> pump(WidgetTester tester, AppState state,
-      {Future<String?> Function()? pickFolder}) async {
+  Future<AppState> pump(
+    WidgetTester tester,
+    AppState state, {
+    Future<String?> Function()? pickFolder,
+  }) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     await tester.runAsync(state.refresh);
-    await tester.pumpWidget(MaterialApp(
-      theme: buildTheme(),
-      home: HomePage(state: state, pickFolder: pickFolder),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: HomePage(state: state, pickFolder: pickFolder),
+      ),
+    );
     await tester.pump();
     return state;
   }
@@ -74,12 +78,16 @@ void main() {
     tmp = Directory.systemTemp.createTempSync('alcfai_home_');
     realHome = '${tmp.path}/home';
     Directory('$realHome/.globus').createSync(recursive: true);
-    sb = Sandbox(root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+    sb = Sandbox(
+      root: '$realHome/.local/share/alcfai/home',
+      realHome: realHome,
+    );
     // Claude and Pi already configured in the sandbox.
     File('${sb.claudeDir}/settings.json')
       ..createSync(recursive: true)
       ..writeAsStringSync(
-          '{"env": {"ANTHROPIC_BASE_URL": "https://x/resource_server/minerva/api", "ANTHROPIC_MODEL": "inkling-bf16"}}');
+        '{"env": {"ANTHROPIC_BASE_URL": "https://x/resource_server/minerva/api", "ANTHROPIC_MODEL": "inkling-bf16"}}',
+      );
     File('${sb.home}/.pi/agent/models.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"providers": {"alcf-inference-service-x": {}}}');
@@ -90,8 +98,9 @@ void main() {
   IconButton button(WidgetTester t, String key) =>
       t.widget<IconButton>(find.byKey(ValueKey(key)));
 
-  testWidgets('sidebar disables profiles whose binary is missing',
-      (tester) async {
+  testWidgets('sidebar disables profiles whose binary is missing', (
+    tester,
+  ) async {
     await pump(tester, makeState());
     expect(find.text('Codex · ALCF'), findsOneWidget);
     expect(find.text('Not installed'), findsNWidgets(2));
@@ -100,16 +109,18 @@ void main() {
     expect(button(tester, 'open-pi-alcf').onPressed, isNotNull);
   });
 
-  testWidgets('unconfigured ALCF profile offers Configure, not Open',
-      (tester) async {
+  testWidgets('unconfigured ALCF profile offers Configure, not Open', (
+    tester,
+  ) async {
     File('${sb.home}/.pi/agent/models.json').deleteSync();
     await pump(tester, makeState());
     expect(find.byKey(const ValueKey('open-pi-alcf')), findsNothing);
     expect(find.byKey(const ValueKey('setup-pi-alcf')), findsOneWidget);
   });
 
-  testWidgets('open adds a tab and selects it; close removes it',
-      (tester) async {
+  testWidgets('open adds a tab and selects it; close removes it', (
+    tester,
+  ) async {
     final state = await pump(tester, makeState());
     expect(find.text('Start a session'), findsOneWidget);
 
@@ -124,7 +135,10 @@ void main() {
 
     state.open(state.profiles.first, tmp.path);
     await tester.pump();
-    expect(state.tabs.map((t) => t.title), ['Claude · ALCF', 'Claude · ALCF (2)']);
+    expect(state.tabs.map((t) => t.title), [
+      'Claude · ALCF',
+      'Claude · ALCF (2)',
+    ]);
     expect(state.active, 1);
 
     await tester.tap(find.byKey(const ValueKey('close-tab-1')));
@@ -135,8 +149,9 @@ void main() {
     expect(state.active, 0);
   });
 
-  testWidgets('login banner shows when the ALCF login is missing',
-      (tester) async {
+  testWidgets('login banner shows when the ALCF login is missing', (
+    tester,
+  ) async {
     final state = await pump(tester, makeState(tokenOk: false));
     expect(state.alcfLoggedIn, isFalse);
     expect(find.text('Log in'), findsOneWidget);
@@ -146,13 +161,16 @@ void main() {
     expect(started.single.args, ['login', 'inference']);
   });
 
-  testWidgets('shared-config hint shows when CLAUDE.md is not linked',
-      (tester) async {
+  testWidgets('shared-config hint shows when CLAUDE.md is not linked', (
+    tester,
+  ) async {
     await pump(tester, makeState());
     expect(
-        find.text(
-            'Run ~/Software/claude_config/install.sh --alcf to share CLAUDE.md, commands and skills'),
-        findsOneWidget);
+      find.text(
+        'Run ~/Software/claude_config/install.sh --alcf to share CLAUDE.md, commands and skills',
+      ),
+      findsOneWidget,
+    );
     expect(button(tester, 'open-claude-alcf').onPressed, isNotNull);
   });
 
@@ -178,8 +196,9 @@ void main() {
     expect(state.tabs, isEmpty);
   });
 
-  testWidgets('an ended session closes at once and can be restarted',
-      (tester) async {
+  testWidgets('an ended session closes at once and can be restarted', (
+    tester,
+  ) async {
     final state = await pump(tester, makeState());
     state.open(state.profiles.first, tmp.path);
     await tester.pump();
@@ -198,8 +217,9 @@ void main() {
     expect(state.tabs, isEmpty);
   });
 
-  testWidgets('empty screen offers to reopen the last sessions',
-      (tester) async {
+  testWidgets('empty screen offers to reopen the last sessions', (
+    tester,
+  ) async {
     final store = AppStore('${tmp.path}/state.json')
       ..lastTabs = [SavedTab('pi-alcf', tmp.path)];
     final state = await pump(tester, makeState(store: store));
@@ -209,13 +229,17 @@ void main() {
     expect(find.text('Reopen last sessions (1)'), findsNothing);
   });
 
-  testWidgets('new-session dialog offers recent folders and a folder picker',
-      (tester) async {
+  testWidgets('new-session dialog offers recent folders and a folder picker', (
+    tester,
+  ) async {
     final a = Directory('${tmp.path}/a')..createSync();
     final b = Directory('${tmp.path}/b')..createSync();
     final store = AppStore('${tmp.path}/state.json')..addRecent(a.path);
-    final state = await pump(tester, makeState(store: store),
-        pickFolder: () async => b.path);
+    final state = await pump(
+      tester,
+      makeState(store: store),
+      pickFolder: () async => b.path,
+    );
     await openVia(tester, 'pi-alcf');
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(find.byKey(const ValueKey('recent-0')), findsOneWidget);
@@ -232,17 +256,21 @@ void main() {
     expect(state.tabs.single.spec.cwd, a.path);
   });
 
-  testWidgets('new-session dialog warns when the model is queued',
-      (tester) async {
+  testWidgets('new-session dialog warns when the model is queued', (
+    tester,
+  ) async {
     final state = makeState();
     runner.handlers['/bin/alcf-ai ls-jobs minerva'] = (_) =>
         const RunResult(0, "{'queued': [{'Models': 'inkling-bf16'}]}", '');
     await pump(tester, state);
     await openVia(tester, 'claude-alcf');
     expect(
-        find.text('inkling-bf16 is queued on minerva. The first answer can '
-            'take several minutes while it loads.'),
-        findsOneWidget);
+      find.text(
+        'inkling-bf16 is queued on minerva. The first answer can '
+        'take several minutes while it loads.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('zoom reaches the terminal font', (tester) async {
@@ -254,5 +282,12 @@ void main() {
     final view = tester.widget<TerminalTab>(find.byType(TerminalTab));
     expect(view.fontSize, state.fontSize);
     expect(view.onZoom, isNotNull);
+  });
+
+  testWidgets('sidebar shows the remembered Pi model', (tester) async {
+    final store = AppStore('${tmp.path}/state.json')
+      ..choices['pi-alcf'] = const AgentChoice('minerva', 'gpt-oss-120b');
+    await pump(tester, makeState(store: store));
+    expect(find.text('minerva, model gpt-oss-120b'), findsOneWidget);
   });
 }

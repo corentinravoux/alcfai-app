@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app/app_state.dart';
 import 'core/alcf_cli.dart';
+import 'core/app_store.dart';
 import 'core/guard.dart';
 import 'core/launch.dart';
 import 'core/profiles.dart';
@@ -14,11 +15,13 @@ import 'ui/configure_dialog.dart';
 import 'ui/home_page.dart';
 import 'ui/theme.dart';
 
-void main() {
+Future<void> main() async {
   final env = Platform.environment;
   final realHome = env['HOME']!;
   final sandbox = Sandbox(
-      root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+    root: '$realHome/.local/share/alcfai/home',
+    realHome: realHome,
+  );
   final alcfExe = whichOnPath('alcf-ai', env);
   final tokensExe = whichOnPath('alcf-tokens', env);
 
@@ -40,6 +43,9 @@ void main() {
       ? '$realHome/Documents/Python'
       : realHome;
 
+  final store = AppStore('$realHome/.local/share/alcfai/state.json');
+  await store.load();
+
   final state = AppState(
     profiles: defaultProfiles(realHome),
     which: (exe) => whichOnPath(exe, env),
@@ -48,10 +54,12 @@ void main() {
     start: startFlutterPty,
     parentEnv: env,
     defaultCwd: defaultCwd,
+    store: store,
   );
 
   runApp(AlcfaiApp(state: state, onConfigure: showConfigureDialog));
   sandbox.ensure().then((_) => state.refresh());
+  state.startLoginChecks();
 }
 
 String _uvCacheDir(Map<String, String> env, String realHome) {
@@ -77,9 +85,9 @@ class AlcfaiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'ALCF AI',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        home: HomePage(state: state, onConfigure: onConfigure),
-      );
+    title: 'ALCF AI',
+    debugShowCheckedModeBanner: false,
+    theme: buildTheme(),
+    home: HomePage(state: state, onConfigure: onConfigure),
+  );
 }

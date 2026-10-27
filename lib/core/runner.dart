@@ -10,8 +10,11 @@ class RunResult {
 /// Runs a command to completion. [env], when given, is the child's whole
 /// environment (the parent's is not merged in).
 abstract class Runner {
-  Future<RunResult> run(String exe, List<String> args,
-      {Map<String, String>? env});
+  Future<RunResult> run(
+    String exe,
+    List<String> args, {
+    Map<String, String>? env,
+  });
 }
 
 class IoRunner implements Runner {
@@ -19,12 +22,18 @@ class IoRunner implements Runner {
   final Duration timeout;
 
   @override
-  Future<RunResult> run(String exe, List<String> args,
-      {Map<String, String>? env}) async {
+  Future<RunResult> run(
+    String exe,
+    List<String> args, {
+    Map<String, String>? env,
+  }) async {
     try {
-      final r = await Process.run(exe, args,
-              environment: env, includeParentEnvironment: env == null)
-          .timeout(timeout);
+      final r = await Process.run(
+        exe,
+        args,
+        environment: env,
+        includeParentEnvironment: env == null,
+      ).timeout(timeout);
       return RunResult(r.exitCode, '${r.stdout}', '${r.stderr}');
     } on ProcessException catch (e) {
       return RunResult(127, '', e.message);

@@ -18,14 +18,16 @@ typedef PtyStarter = PtySession Function(LaunchSpec spec);
 /// flutter_pty copies only TERM, LANG, LOGNAME, USER, DISPLAY, LC_TYPE,
 /// HOME and PATH from the app's own environment, then applies [LaunchSpec.env]
 /// on top, so nothing else from the parent leaks into the agent.
-PtySession startFlutterPty(LaunchSpec spec) => _FlutterPty(Pty.start(
-      spec.executable,
-      arguments: spec.args,
-      workingDirectory: spec.cwd,
-      environment: spec.env,
-      rows: 40,
-      columns: 120,
-    ));
+PtySession startFlutterPty(LaunchSpec spec) => _FlutterPty(
+  Pty.start(
+    spec.executable,
+    arguments: spec.args,
+    workingDirectory: spec.cwd,
+    environment: spec.env,
+    rows: 40,
+    columns: 120,
+  ),
+);
 
 class _FlutterPty implements PtySession {
   _FlutterPty(this._pty);

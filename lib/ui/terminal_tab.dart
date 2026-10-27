@@ -116,7 +116,8 @@ class _TerminalTabState extends State<TerminalTab>
       return KeyEventResult.handled;
     }
     final step = switch (k) {
-      LogicalKeyboardKey.equal || LogicalKeyboardKey.add ||
+      LogicalKeyboardKey.equal ||
+      LogicalKeyboardKey.add ||
       LogicalKeyboardKey.numpadAdd => 1,
       LogicalKeyboardKey.minus || LogicalKeyboardKey.numpadSubtract => -1,
       LogicalKeyboardKey.digit0 || LogicalKeyboardKey.numpad0 => 0,
@@ -152,7 +153,9 @@ class _TerminalTabState extends State<TerminalTab>
 
   void _search(String q) {
     final lines = terminal.buffer.lines;
-    _hits = findAll([for (var y = 0; y < lines.length; y++) lines[y].getText()], q);
+    _hits = findAll([
+      for (var y = 0; y < lines.length; y++) lines[y].getText(),
+    ], q);
     _hit = _hits.length - 1; // newest output first
     _showHit();
   }
@@ -186,33 +189,37 @@ class _TerminalTabState extends State<TerminalTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(children: [
-      if (_finding) _findBar(context),
-      Expanded(
-        child: TerminalView(
-          terminal,
-          controller: _controller,
-          scrollController: _scroll,
-          focusNode: _termFocus,
-          autofocus: true,
-          shortcuts: kTerminalShortcuts,
-          onKeyEvent: _onKey,
-          onTapUp: _onTapUp,
-          theme: terminalTheme,
-          padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
-          textStyle:
-              TerminalStyle(fontFamily: Tok.mono, fontSize: widget.fontSize),
+    return Column(
+      children: [
+        if (_finding) _findBar(context),
+        Expanded(
+          child: TerminalView(
+            terminal,
+            controller: _controller,
+            scrollController: _scroll,
+            focusNode: _termFocus,
+            autofocus: true,
+            shortcuts: kTerminalShortcuts,
+            onKeyEvent: _onKey,
+            onTapUp: _onTapUp,
+            theme: terminalTheme,
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
+            textStyle: TerminalStyle(
+              fontFamily: Tok.mono,
+              fontSize: widget.fontSize,
+            ),
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _findBar(BuildContext context) {
     final count = _findCtrl.text.isEmpty
         ? ''
         : _hits.isEmpty
-            ? 'No matches'
-            : '${_hit + 1} of ${_hits.length}';
+        ? 'No matches'
+        : '${_hit + 1} of ${_hits.length}';
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -220,48 +227,53 @@ class _TerminalTabState extends State<TerminalTab>
         color: Tok.rail,
         border: Border(bottom: BorderSide(color: Tok.line)),
       ),
-      child: Row(children: [
-        SizedBox(
-          width: 260,
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.escape): _closeFind,
-              const SingleActivator(LogicalKeyboardKey.enter, shift: true): () =>
-                  _step(-1),
-            },
-            child: TextField(
-              key: const ValueKey('find-field'),
-              controller: _findCtrl,
-              autofocus: true,
-              onChanged: _search,
-              onSubmitted: (_) => _step(1),
-              style: const TextStyle(fontSize: 13.5),
-              decoration: const InputDecoration(hintText: 'Find in output'),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 260,
+            child: CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.escape): _closeFind,
+                const SingleActivator(
+                  LogicalKeyboardKey.enter,
+                  shift: true,
+                ): () =>
+                    _step(-1),
+              },
+              child: TextField(
+                key: const ValueKey('find-field'),
+                controller: _findCtrl,
+                autofocus: true,
+                onChanged: _search,
+                onSubmitted: (_) => _step(1),
+                style: const TextStyle(fontSize: 13.5),
+                decoration: const InputDecoration(hintText: 'Find in output'),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(count, style: Theme.of(context).textTheme.bodySmall),
-        const Spacer(),
-        IconButton(
-          key: const ValueKey('find-prev'),
-          tooltip: 'Previous match',
-          onPressed: _hits.isEmpty ? null : () => _step(-1),
-          icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
-        ),
-        IconButton(
-          key: const ValueKey('find-next'),
-          tooltip: 'Next match',
-          onPressed: _hits.isEmpty ? null : () => _step(1),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
-        ),
-        IconButton(
-          key: const ValueKey('find-close'),
-          tooltip: 'Close search',
-          onPressed: _closeFind,
-          icon: const Icon(Icons.close_rounded, size: 18),
-        ),
-      ]),
+          const SizedBox(width: 10),
+          Text(count, style: Theme.of(context).textTheme.bodySmall),
+          const Spacer(),
+          IconButton(
+            key: const ValueKey('find-prev'),
+            tooltip: 'Previous match',
+            onPressed: _hits.isEmpty ? null : () => _step(-1),
+            icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
+          ),
+          IconButton(
+            key: const ValueKey('find-next'),
+            tooltip: 'Next match',
+            onPressed: _hits.isEmpty ? null : () => _step(1),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+          ),
+          IconButton(
+            key: const ValueKey('find-close'),
+            tooltip: 'Close search',
+            onPressed: _closeFind,
+            icon: const Icon(Icons.close_rounded, size: 18),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -26,7 +26,8 @@ const lsModels = '''
 ]
 ''';
 
-const lsJobs = "{'running': [{'Models': 'gpt-oss-120b'}], 'queued': [{'Models': 'inkling-bf16'}]}";
+const lsJobs =
+    "{'running': [{'Models': 'gpt-oss-120b'}], 'queued': [{'Models': 'inkling-bf16'}]}";
 
 void main() {
   late Directory tmp;
@@ -41,7 +42,10 @@ void main() {
     Directory('$realHome/.globus').createSync(recursive: true);
     Directory('$realHome/.claude/plugins').createSync(recursive: true);
     File('$realHome/.claude/settings.json').writeAsStringSync('{}');
-    sb = Sandbox(root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+    sb = Sandbox(
+      root: '$realHome/.local/share/alcfai/home',
+      realHome: realHome,
+    );
     runner = FakeRunner({
       '/bin/alcf-ai ls-models': (_) => const RunResult(0, lsModels, ''),
       '/bin/alcf-ai ls-jobs': (_) => const RunResult(0, lsJobs, ''),
@@ -75,7 +79,8 @@ void main() {
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 30; i++) {
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 5)));
+        () => Future<void>.delayed(const Duration(milliseconds: 5)),
+      );
       await tester.pump();
     }
   }
@@ -83,17 +88,19 @@ void main() {
   Future<void> openDialog(WidgetTester tester, String id) async {
     await tester.binding.setSurfaceSize(const Size(1280, 900));
     await tester.runAsync(state.refresh);
-    await tester.pumpWidget(MaterialApp(
-      theme: buildTheme(),
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () => showConfigureDialog(context, state, profile(id)),
-            child: const Text('go'),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showConfigureDialog(context, state, profile(id)),
+              child: const Text('go'),
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('go'));
     await settle(tester);
   }
@@ -106,8 +113,9 @@ void main() {
   Iterable<Call> configureCalls() =>
       runner.calls.where((c) => c.args.take(2).join(' ') == 'agent configure');
 
-  testWidgets('cluster dropdown offers kClusters, default minerva, no metis',
-      (tester) async {
+  testWidgets('cluster dropdown offers kClusters, default minerva, no metis', (
+    tester,
+  ) async {
     await openDialog(tester, 'pi-alcf');
     expect(find.text('minerva'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('cluster-dropdown')));
@@ -118,8 +126,9 @@ void main() {
     expect(find.text('metis'), findsNothing);
   });
 
-  testWidgets('model dropdown is filled from listModels(forAgent)',
-      (tester) async {
+  testWidgets('model dropdown is filled from listModels(forAgent)', (
+    tester,
+  ) async {
     await openDialog(tester, 'claude-alcf');
     expect(find.text('inkling-bf16'), findsOneWidget);
     expect(find.text('queued'), findsOneWidget);
@@ -138,8 +147,9 @@ void main() {
     expect(configureCalls().single.args, contains('--include-experimental'));
   });
 
-  testWidgets('plugins checkbox shows only for Claude, unchecked',
-      (tester) async {
+  testWidgets('plugins checkbox shows only for Claude, unchecked', (
+    tester,
+  ) async {
     const label = 'Include plugins & hooks (uses much more context)';
     await openDialog(tester, 'pi-alcf');
     expect(find.text(label), findsNothing);
@@ -149,7 +159,8 @@ void main() {
     await openDialog(tester, 'claude-alcf');
     expect(find.text(label), findsOneWidget);
     final box = tester.widget<CheckboxListTile>(
-        find.byKey(const ValueKey('plugins-box')));
+      find.byKey(const ValueKey('plugins-box')),
+    );
     expect(box.value, isFalse);
     await tester.tap(find.text(label));
     await tester.pump();
@@ -172,18 +183,20 @@ void main() {
   });
 
   testWidgets('LoginNeeded shows a Log in button', (tester) async {
-    runner.handlers['/bin/alcf-tokens get-token'] =
-        (_) => const RunResult(1, '', '');
+    runner.handlers['/bin/alcf-tokens get-token'] = (_) =>
+        const RunResult(1, '', '');
     await openDialog(tester, 'pi-alcf');
     await pressConfigure(tester);
-    expect(find.text('ALCF login needed. Log in, then configure again.'),
-        findsOneWidget);
+    expect(
+      find.text('ALCF login needed. Log in, then configure again.'),
+      findsOneWidget,
+    );
     expect(find.text('Log in'), findsOneWidget);
   });
 
   testWidgets('Failed shows explainError text', (tester) async {
-    runner.handlers['/bin/alcf-ai agent configure'] =
-        (_) => const RunResult(1, '', 'HTTP 429 Too Many Requests');
+    runner.handlers['/bin/alcf-ai agent configure'] = (_) =>
+        const RunResult(1, '', 'HTTP 429 Too Many Requests');
     await openDialog(tester, 'pi-alcf');
     await pressConfigure(tester);
     expect(find.text('ALCF rate limit, wait and retry.'), findsOneWidget);
@@ -200,7 +213,36 @@ void main() {
     final path = find.text('$realHome/.claude/settings.json');
     expect(path, findsOneWidget);
     expect(tester.widget<Text>(path).style?.color, Tok.danger);
-    expect(find.textContaining('a .bak.* copy sits next to it: restore it'),
-        findsOneWidget);
+    expect(
+      find.textContaining('a .bak.* copy sits next to it: restore it'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Ok remembers the choice; reopening starts from it', (
+    tester,
+  ) async {
+    final generic = runner.handlers.remove('/bin/alcf-ai ls-models')!;
+    runner.handlers['/bin/alcf-ai ls-models sophia'] = (_) => const RunResult(
+      0,
+      '[{"id": "openai/gpt-oss-120b", "capabilities": {"api_protocols": ["chat_completions"]}}]',
+      '',
+    );
+    runner.handlers['/bin/alcf-ai ls-models'] = generic;
+    await openDialog(tester, 'pi-alcf');
+    await tester.tap(find.byKey(const ValueKey('cluster-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('sophia').last);
+    await settle(tester);
+    await pressConfigure(tester);
+    await tester.pumpAndSettle();
+    expect(
+      state.store.choices['pi-alcf'],
+      const AgentChoice('sophia', 'openai/gpt-oss-120b'),
+    );
+
+    await openDialog(tester, 'pi-alcf');
+    expect(find.text('sophia'), findsOneWidget);
+    expect(find.text('openai/gpt-oss-120b'), findsOneWidget);
   });
 }

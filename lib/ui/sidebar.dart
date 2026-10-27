@@ -34,11 +34,11 @@ class Sidebar extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('ALCF AI',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontSize: 17)),
+            child: Text(
+              'ALCF AI',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontSize: 17),
+            ),
           ),
           const SizedBox(height: 4),
           Padding(
@@ -56,8 +56,12 @@ class Sidebar extends StatelessWidget {
     );
   }
 
-  Widget _tile(BuildContext context, ProfileStatus s) =>
-      _ProfileTile(state: state, status: s, onOpen: onOpen, onConfigure: onConfigure);
+  Widget _tile(BuildContext context, ProfileStatus s) => _ProfileTile(
+    state: state,
+    status: s,
+    onOpen: onOpen,
+    onConfigure: onConfigure,
+  );
 }
 
 class _LoginLine extends StatelessWidget {
@@ -69,19 +73,21 @@ class _LoginLine extends StatelessWidget {
     final (text, color) = !state.alcfAvailable
         ? ('alcf-ai is not installed', Tok.danger)
         : state.alcfLoggedIn
-            ? ('Signed in to ALCF', Tok.running)
-            : ('Not signed in to ALCF', Tok.queued);
-    return Row(children: [
-      Container(
-        width: 7,
-        height: 7,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 8),
-      Flexible(
-        child: Text(text, style: Theme.of(context).textTheme.bodySmall),
-      ),
-    ]);
+        ? ('Signed in to ALCF', Tok.running)
+        : ('Not signed in to ALCF', Tok.queued);
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+        ),
+      ],
+    );
   }
 }
 
@@ -91,13 +97,13 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-        child: Text(label,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Tok.faint, fontWeight: FontWeight.w700)),
-      );
+    padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: Tok.faint, fontWeight: FontWeight.w700),
+    ),
+  );
 }
 
 class _ProfileTile extends StatelessWidget {
@@ -132,7 +138,8 @@ class _ProfileTile extends StatelessWidget {
     final canOpen = state.canOpen(status);
     final canConfigure = status.installed && state.alcfAvailable;
     final dim = !status.installed;
-    final hint = p.isAlcf &&
+    final hint =
+        p.isAlcf &&
         p.kind == AgentKind.claude &&
         status.installed &&
         !state.sandbox.sharedConfigLinked;
@@ -142,13 +149,15 @@ class _ProfileTile extends StatelessWidget {
       actions = [
         if (p.isAlcf)
           IconButton(
-              key: ValueKey('configure-$id'),
-              onPressed: null,
-              icon: const Icon(Icons.tune_rounded, size: 18)),
-        IconButton(
-            key: ValueKey('open-$id'),
+            key: ValueKey('configure-$id'),
             onPressed: null,
-            icon: const Icon(Icons.play_arrow_rounded)),
+            icon: const Icon(Icons.tune_rounded, size: 18),
+          ),
+        IconButton(
+          key: ValueKey('open-$id'),
+          onPressed: null,
+          icon: const Icon(Icons.play_arrow_rounded),
+        ),
       ];
     } else if (p.isAlcf && !status.configured) {
       actions = [
@@ -191,29 +200,36 @@ class _ProfileTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(p.label,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: dim ? Tok.faint : Tok.text)),
+                    Text(
+                      p.label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: dim ? Tok.faint : Tok.text,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(_detail,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: dim ? Tok.faint : Tok.muted)),
+                    Text(
+                      _detail,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: dim ? Tok.faint : Tok.muted),
+                    ),
                     if (hint) ...[
                       const SizedBox(height: 4),
-                      Text(kSharedConfigHint,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: Tok.faint, fontSize: 11.5)),
+                      Text(
+                        kSharedConfigHint,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: Tok.faint, fontSize: 11.5),
+                      ),
                     ],
                   ],
                 ),
               ),
               IconTheme(
                 data: IconThemeData(
-                    color: dim ? Tok.faint : Tok.muted, size: 20),
+                  color: dim ? Tok.faint : Tok.muted,
+                  size: 20,
+                ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: actions),
               ),
             ],

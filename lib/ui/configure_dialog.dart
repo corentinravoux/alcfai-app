@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_state.dart';
 import '../core/agents.dart';
 import '../core/alcf_cli.dart';
+import '../core/app_store.dart';
 import '../core/profiles.dart';
 import 'theme.dart';
 
@@ -10,7 +11,10 @@ const kPluginsLabel = 'Include plugins & hooks (uses much more context)';
 
 /// Picks cluster and model, then runs the sandboxed `alcf-ai agent configure`.
 Future<void> showConfigureDialog(
-    BuildContext context, AppState state, Profile profile) {
+  BuildContext context,
+  AppState state,
+  Profile profile,
+) {
   return showDialog<void>(
     context: context,
     builder: (_) => _ConfigureDialog(state: state, profile: profile),
@@ -55,9 +59,16 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
   bool _busy = false;
   _Outcome? _outcome;
 
+  String? _preferred;
+
   @override
   void initState() {
     super.initState();
+    final c = widget.state.choiceFor(widget.profile);
+    if (c != null && kClusters.contains(c.cluster)) {
+      _cluster = c.cluster;
+      _preferred = c.model;
+    }
     _load();
   }
 
@@ -74,9 +85,12 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
     setState(() {
       _models = models;
       _status = results[1] as Map<String, ModelStatus>;
-      _model = models.any((m) => m.id == 'inkling-bf16')
-          ? 'inkling-bf16'
-          : (models.isEmpty ? null : models.first.id);
+      _model =
+          [_preferred, 'inkling-bf16'].firstWhere(
+            (id) => models.any((m) => m.id == id),
+            orElse: () => null,
+          ) ??
+          (models.isEmpty ? null : models.first.id);
       _loading = false;
     });
   }
@@ -97,6 +111,10 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
     );
     if (!mounted) return;
     if (r is ConfigureOk) {
+      await widget.state.recordChoice(
+        widget.profile,
+        AgentChoice(_cluster, model),
+      );
       await widget.state.refresh();
       if (mounted) Navigator.pop(context);
       return;
@@ -105,8 +123,9 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
       _busy = false;
       _outcome = switch (r) {
         LoginNeeded() => const _Message(
-            'ALCF login needed. Log in, then configure again.',
-            login: true),
+          'ALCF login needed. Log in, then configure again.',
+          login: true,
+        ),
         ConfigureFailed(:final message) => _Message(message),
         RealConfigTouched(:final paths) => _Touched(paths),
         ConfigureOk() => null,
@@ -154,8 +173,10 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
             _modelField(t),
             if (_isClaude) ...[
               const SizedBox(height: 6),
-              Text('Only models that speak the Anthropic API are listed.',
-                  style: t.bodySmall),
+              Text(
+                'Only models that speak the Anthropic API are listed.',
+                style: t.bodySmall,
+              ),
             ],
             const SizedBox(height: 10),
             CheckboxListTile(
@@ -168,8 +189,10 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
                   ? null
                   : (v) => setState(() => _experimental = v ?? false),
               title: const Text('Include experimental models'),
-              subtitle: Text('Needed for tara; less tested by ALCF.',
-                  style: t.bodySmall),
+              subtitle: Text(
+                'Needed for tara; less tested by ALCF.',
+                style: t.bodySmall,
+              ),
             ),
             if (_isClaude)
               CheckboxListTile(
@@ -178,8 +201,9 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 dense: true,
                 value: _plugins,
-                onChanged:
-                    _busy ? null : (v) => setState(() => _plugins = v ?? false),
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _plugins = v ?? false),
                 title: const Text(kPluginsLabel),
               ),
             if (_outcome != null) ...[
@@ -232,21 +256,28 @@ class _ConfigureDialogState extends State<_ConfigureDialog> {
         style: t.bodySmall?.copyWith(color: Tok.queued),
       );
     }
-    return DropdownButtonFormField<String>(
-      key: const ValueKey('model-dropdown'),
-      initialValue: _model,
-      isExpanded: true,
-      items: [
-        for (final m in _models)
-          DropdownMenuItem(
-            value: m.id,
-            child: Row(children: [
-              Expanded(child: Text(m.id, overflow: TextOverflow.ellipsis)),
-              _StatusLabel(_status[m.id] ?? ModelStatus.unknown),
-            ]),
-          ),
-      ],
-      onChanged: _busy ? null : (v) => setState(() => _model = v),
+    // Keyed by cluster: a form field reads initialValue only once, so a new
+    // cluster needs a new field or it keeps showing the old model.
+    return KeyedSubtree(
+      key: ValueKey('models-$_cluster'),
+      child: DropdownButtonFormField<String>(
+        key: const ValueKey('model-dropdown'),
+        initialValue: _model,
+        isExpanded: true,
+        items: [
+          for (final m in _models)
+            DropdownMenuItem(
+              value: m.id,
+              child: Row(
+                children: [
+                  Expanded(child: Text(m.id, overflow: TextOverflow.ellipsis)),
+                  _StatusLabel(_status[m.id] ?? ModelStatus.unknown),
+                ],
+              ),
+            ),
+        ],
+        onChanged: _busy ? null : (v) => setState(() => _model = v),
+      ),
     );
   }
 }
@@ -264,8 +295,10 @@ class _StatusLabel extends StatelessWidget {
       ModelStatus.unknown => ('', Tok.faint),
     };
     if (text.isEmpty) return const SizedBox.shrink();
-    return Text(text,
-        style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700));
+    return Text(
+      text,
+      style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700),
+    );
   }
 }
 
@@ -277,25 +310,30 @@ class _OutcomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return switch (outcome) {
-      _Message(:final text) =>
-        Text(text, style: t.bodyMedium?.copyWith(color: Tok.queued)),
+      _Message(:final text) => Text(
+        text,
+        style: t.bodyMedium?.copyWith(color: Tok.queued),
+      ),
       _Touched(:final paths) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Stopped: alcf-ai changed your own config. For each file below, '
+            'a .bak.* copy sits next to it: restore it.',
+            style: t.bodyMedium?.copyWith(color: Tok.danger),
+          ),
+          const SizedBox(height: 6),
+          for (final p in paths)
             Text(
-              'Stopped: alcf-ai changed your own config. For each file below, '
-              'a .bak.* copy sits next to it: restore it.',
-              style: t.bodyMedium?.copyWith(color: Tok.danger),
+              p,
+              style: const TextStyle(
+                color: Tok.danger,
+                fontFamily: Tok.mono,
+                fontSize: 12.5,
+              ),
             ),
-            const SizedBox(height: 6),
-            for (final p in paths)
-              Text(p,
-                  style: const TextStyle(
-                      color: Tok.danger,
-                      fontFamily: Tok.mono,
-                      fontSize: 12.5)),
-          ],
-        ),
+        ],
+      ),
     };
   }
 }

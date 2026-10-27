@@ -81,11 +81,14 @@ List<String> piModelArgs(Sandbox sandbox, AgentChoice? choice) {
   if (choice == null) return const [];
   try {
     final v = jsonDecode(
-        File('${sandbox.home}/.pi/agent/models.json').readAsStringSync());
+      File('${sandbox.home}/.pi/agent/models.json').readAsStringSync(),
+    );
     final providers = (v as Map)['providers'] as Map;
     for (final e in providers.entries) {
       final key = '${e.key}';
-      if (!key.startsWith('alcf-inference-service-${choice.cluster}-')) continue;
+      if (!key.startsWith('alcf-inference-service-${choice.cluster}-')) {
+        continue;
+      }
       final models = (e.value as Map)['models'] as List? ?? const [];
       if (models.any((m) => m is Map && m['id'] == choice.model)) {
         return ['--model', '$key/${choice.model}'];

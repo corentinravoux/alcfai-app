@@ -10,7 +10,7 @@ import 'agents.dart';
 /// variable points here (see [overrideValue]).
 class Sandbox {
   Sandbox({required String root, required this.realHome})
-      : home = p.normalize(root);
+    : home = p.normalize(root);
 
   final String home;
   final String realHome;
@@ -35,21 +35,25 @@ class Sandbox {
 
   /// Value of the agent's config-location variable at launch time.
   String overrideValue(AgentKind k) => switch (k) {
-        AgentKind.claude => claudeDir,
-        AgentKind.codex => '$home/.codex',
-        AgentKind.pi => '$home/.pi/agent',
-        AgentKind.opencode => '$home/.config/opencode/opencode.jsonc',
-      };
+    AgentKind.claude => claudeDir,
+    AgentKind.codex => '$home/.codex',
+    AgentKind.pi => '$home/.pi/agent',
+    AgentKind.opencode => '$home/.config/opencode/opencode.jsonc',
+  };
 
   /// True once alcf-ai has written this agent's config into the sandbox.
   bool isConfigured(AgentKind k) => switch (k) {
-        AgentKind.claude =>
-          _contains('$claudeDir/settings.json', 'ANTHROPIC_BASE_URL'),
-        AgentKind.pi =>
-          _contains('$home/.pi/agent/models.json', 'alcf-inference-service-'),
-        AgentKind.codex => File('$home/.codex/config.toml').existsSync(),
-        AgentKind.opencode => File(overrideValue(k)).existsSync(),
-      };
+    AgentKind.claude => _contains(
+      '$claudeDir/settings.json',
+      'ANTHROPIC_BASE_URL',
+    ),
+    AgentKind.pi => _contains(
+      '$home/.pi/agent/models.json',
+      'alcf-inference-service-',
+    ),
+    AgentKind.codex => File('$home/.codex/config.toml').existsSync(),
+    AgentKind.opencode => File(overrideValue(k)).existsSync(),
+  };
 
   /// True when `install.sh --alcf` has linked the shared CLAUDE.md.
   bool get sharedConfigLinked =>

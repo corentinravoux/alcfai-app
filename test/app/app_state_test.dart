@@ -53,15 +53,20 @@ void main() {
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('alcfai_state_');
     realHome = '${tmp.path}/home';
-    sb = Sandbox(root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+    sb = Sandbox(
+      root: '$realHome/.local/share/alcfai/home',
+      realHome: realHome,
+    );
     File('${sb.claudeDir}/settings.json')
       ..createSync(recursive: true)
       ..writeAsStringSync(
-          '{"env": {"ANTHROPIC_BASE_URL": "https://x/resource_server/minerva/api", "ANTHROPIC_MODEL": "inkling-bf16"}}');
+        '{"env": {"ANTHROPIC_BASE_URL": "https://x/resource_server/minerva/api", "ANTHROPIC_MODEL": "inkling-bf16"}}',
+      );
     File('${sb.home}/.pi/agent/models.json')
       ..createSync(recursive: true)
       ..writeAsStringSync(
-          '{"providers": {"alcf-inference-service-minerva-api": {"models": [{"id": "gpt-oss-120b"}]}}}');
+        '{"providers": {"alcf-inference-service-minerva-api": {"models": [{"id": "gpt-oss-120b"}]}}}',
+      );
     runner = FakeRunner();
     store = AppStore('${tmp.path}/state.json');
   });
@@ -73,14 +78,18 @@ void main() {
     final s = make();
     await s.refresh();
     s.open(p(s, 'pi-alcf'), tmp.path);
-    expect(s.tabs.single.spec.args,
-        ['--model', 'alcf-inference-service-minerva-api/gpt-oss-120b']);
+    expect(s.tabs.single.spec.args, [
+      '--model',
+      'alcf-inference-service-minerva-api/gpt-oss-120b',
+    ]);
   });
 
   test('choiceFor claude falls back to the sandbox settings', () async {
     final s = make();
-    expect(s.choiceFor(p(s, 'claude-alcf')),
-        const AgentChoice('minerva', 'inkling-bf16'));
+    expect(
+      s.choiceFor(p(s, 'claude-alcf')),
+      const AgentChoice('minerva', 'inkling-bf16'),
+    );
     expect(s.choiceFor(p(s, 'pi-alcf')), isNull);
     expect(s.choiceFor(p(s, 'claude-pro')), isNull);
   });
@@ -102,8 +111,10 @@ void main() {
     final a = AppStore(store.path);
     await a.load();
     expect(a.recentFolders, ['/w2', '/w1']);
-    expect(a.lastTabs,
-        [const SavedTab('pi-alcf', '/w1'), const SavedTab('claude-pro', '/w2')]);
+    expect(a.lastTabs, [
+      const SavedTab('pi-alcf', '/w1'),
+      const SavedTab('claude-pro', '/w2'),
+    ]);
     s.close(0);
     await s.saving;
     final b = AppStore(store.path);
@@ -111,8 +122,7 @@ void main() {
     expect(b.lastTabs, [const SavedTab('claude-pro', '/w2')]);
   });
 
-  test('restart replaces an ended tab with a fresh session in place',
-      () async {
+  test('restart replaces an ended tab with a fresh session in place', () async {
     final s = make();
     await s.refresh();
     s.open(p(s, 'pi-alcf'), '/w1');
@@ -124,28 +134,32 @@ void main() {
     expect(s.tabs[0].id, isNot(old.id));
     expect(s.tabs[0].title, old.title);
     expect(s.tabs[0].spec.cwd, '/w1');
-    expect(s.tabs[0].spec.env['ALCF_SESSION_ID'],
-        isNot(old.spec.env['ALCF_SESSION_ID']));
+    expect(
+      s.tabs[0].spec.env['ALCF_SESSION_ID'],
+      isNot(old.spec.env['ALCF_SESSION_ID']),
+    );
     expect(s.tabs[0].exitCode, isNull);
     expect(s.active, 0);
     expect(started.length, 0, reason: 'specs only; ptys start in widgets');
   });
 
-  test('reopenLast opens saved tabs that can open and skips the rest',
-      () async {
-    store.lastTabs = [
-      SavedTab('pi-alcf', tmp.path),
-      SavedTab('codex-alcf', tmp.path),
-      const SavedTab('gone', '/'),
-      SavedTab('claude-pro', '${tmp.path}/deleted-folder'),
-    ];
-    final s = make(missing: {'codex'});
-    await s.refresh();
-    expect(s.canReopen, 4);
-    s.reopenLast();
-    expect(s.tabs.map((t) => t.profile!.id), ['pi-alcf']);
-    expect(s.canReopen, 0);
-  });
+  test(
+    'reopenLast opens saved tabs that can open and skips the rest',
+    () async {
+      store.lastTabs = [
+        SavedTab('pi-alcf', tmp.path),
+        SavedTab('codex-alcf', tmp.path),
+        const SavedTab('gone', '/'),
+        SavedTab('claude-pro', '${tmp.path}/deleted-folder'),
+      ];
+      final s = make(missing: {'codex'});
+      await s.refresh();
+      expect(s.canReopen, 4);
+      s.reopenLast();
+      expect(s.tabs.map((t) => t.profile!.id), ['pi-alcf']);
+      expect(s.canReopen, 0);
+    },
+  );
 
   test('zoom changes the font size and persists it', () async {
     final s = make();

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:alcfai_app/core/launch.dart';
 import 'package:alcfai_app/core/pty.dart';
@@ -41,17 +40,19 @@ void main() {
     pty = FakePty();
     zooms.clear();
     opened.clear();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: TerminalTab(
-          spec: spec,
-          start: (_) => pty,
-          title: 'Pi · ALCF',
-          onZoom: zooms.add,
-          openUrl: opened.add,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TerminalTab(
+            spec: spec,
+            start: (_) => pty,
+            title: 'Pi · ALCF',
+            onZoom: zooms.add,
+            openUrl: opened.add,
+          ),
         ),
       ),
-    ));
+    );
     return tester.widget<TerminalView>(find.byType(TerminalView)).terminal;
   }
 
@@ -78,8 +79,11 @@ void main() {
     expect(pty.killed, isTrue);
   });
 
-  Future<void> chord(WidgetTester t, LogicalKeyboardKey key,
-      {bool shift = false}) async {
+  Future<void> chord(
+    WidgetTester t,
+    LogicalKeyboardKey key, {
+    bool shift = false,
+  }) async {
     await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     if (shift) await t.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await t.sendKeyEvent(key);
@@ -93,17 +97,20 @@ void main() {
     await t.pump();
   }
 
-  testWidgets('ctrl+shift+A then ctrl+shift+C copies, ctrl+shift+V pastes',
-      (tester) async {
+  testWidgets('ctrl+shift+A then ctrl+shift+C copies, ctrl+shift+V pastes', (
+    tester,
+  ) async {
     String? clip;
-    tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'Clipboard.setData') {
-        clip = (call.arguments as Map)['text'] as String;
-      }
-      if (call.method == 'Clipboard.getData') return {'text': 'pasted'};
-      return null;
-    });
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clip = (call.arguments as Map)['text'] as String;
+        }
+        if (call.method == 'Clipboard.getData') return {'text': 'pasted'};
+        return null;
+      },
+    );
     await pump(tester);
     await write(tester, 'copy me');
     await chord(tester, LogicalKeyboardKey.keyA, shift: true);
@@ -154,12 +161,16 @@ void main() {
     await pump(tester);
     await write(tester, 'docs: https://docs.alcf.anl.gov/x ok');
     final view = tester.widget<TerminalView>(find.byType(TerminalView));
-    view.onTapUp!(TapUpDetails(kind: PointerDeviceKind.mouse),
-        const CellOffset(12, 0));
+    view.onTapUp!(
+      TapUpDetails(kind: PointerDeviceKind.mouse),
+      const CellOffset(12, 0),
+    );
     expect(opened, isEmpty, reason: 'plain click does nothing');
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    view.onTapUp!(TapUpDetails(kind: PointerDeviceKind.mouse),
-        const CellOffset(12, 0));
+    view.onTapUp!(
+      TapUpDetails(kind: PointerDeviceKind.mouse),
+      const CellOffset(12, 0),
+    );
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     expect(opened, ['https://docs.alcf.anl.gov/x']);
   });

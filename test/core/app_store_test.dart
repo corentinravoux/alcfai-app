@@ -8,24 +8,29 @@ void main() {
   setUp(() => tmp = Directory.systemTemp.createTempSync('alcfai_store_'));
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  test('round-trips choices, recent folders, last tabs and font size',
-      () async {
-    final path = '${tmp.path}/state.json';
-    final a = AppStore(path)
-      ..choices['pi-alcf'] = const AgentChoice('minerva', 'gpt-oss-120b')
-      ..lastTabs = [const SavedTab('pi-alcf', '/w')]
-      ..fontSize = 15.5;
-    a.addRecent('/a');
-    a.addRecent('/b');
-    await a.save();
+  test(
+    'round-trips choices, recent folders, last tabs and font size',
+    () async {
+      final path = '${tmp.path}/state.json';
+      final a = AppStore(path)
+        ..choices['pi-alcf'] = const AgentChoice('minerva', 'gpt-oss-120b')
+        ..lastTabs = [const SavedTab('pi-alcf', '/w')]
+        ..fontSize = 15.5;
+      a.addRecent('/a');
+      a.addRecent('/b');
+      await a.save();
 
-    final b = AppStore(path);
-    await b.load();
-    expect(b.choices['pi-alcf'], const AgentChoice('minerva', 'gpt-oss-120b'));
-    expect(b.recentFolders, ['/b', '/a']);
-    expect(b.lastTabs, [const SavedTab('pi-alcf', '/w')]);
-    expect(b.fontSize, 15.5);
-  });
+      final b = AppStore(path);
+      await b.load();
+      expect(
+        b.choices['pi-alcf'],
+        const AgentChoice('minerva', 'gpt-oss-120b'),
+      );
+      expect(b.recentFolders, ['/b', '/a']);
+      expect(b.lastTabs, [const SavedTab('pi-alcf', '/w')]);
+      expect(b.fontSize, 15.5);
+    },
+  );
 
   test('addRecent dedupes and keeps the 6 newest', () {
     final s = AppStore('${tmp.path}/x.json');

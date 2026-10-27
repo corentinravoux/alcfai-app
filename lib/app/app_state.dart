@@ -131,7 +131,9 @@ class AppState extends ChangeNotifier {
           .firstMatch('${env['ANTHROPIC_BASE_URL'] ?? ''}')
           ?.group(1);
       final model = env['ANTHROPIC_MODEL'];
-      if (cluster != null && model is String) return AgentChoice(cluster, model);
+      if (cluster != null && model is String) {
+        return AgentChoice(cluster, model);
+      }
     }
     return null;
   }
@@ -188,11 +190,12 @@ class AppState extends ChangeNotifier {
     final p = old.profile;
     if (p == null) {
       tabs[i] = OpenTab(
-          id: _nextId++,
-          title: old.title,
-          profile: null,
-          spec: old.spec,
-          route: old.route);
+        id: _nextId++,
+        title: old.title,
+        profile: null,
+        spec: old.spec,
+        route: old.route,
+      );
     } else {
       tabs[i] = _makeTab(p, old.spec.cwd, old.title);
     }
@@ -221,20 +224,24 @@ class AppState extends ChangeNotifier {
     final cmd = cli.loginCommand;
     final env = {
       for (final e in parentEnv.entries)
-        if (!kStrippedEnvKeys.contains(e.key) && !e.key.startsWith('ANTHROPIC_'))
+        if (!kStrippedEnvKeys.contains(e.key) &&
+            !e.key.startsWith('ANTHROPIC_'))
           e.key: e.value,
     };
-    _add(OpenTab(
-      id: _nextId++,
-      title: 'ALCF login',
-      profile: null,
-      spec: LaunchSpec(
+    _add(
+      OpenTab(
+        id: _nextId++,
+        title: 'ALCF login',
+        profile: null,
+        spec: LaunchSpec(
           executable: cmd.first,
           args: cmd.sublist(1),
           env: env,
-          cwd: sandbox.realHome),
-      route: 'Signs you in to the ALCF inference service',
-    ));
+          cwd: sandbox.realHome,
+        ),
+        route: 'Signs you in to the ALCF inference service',
+      ),
+    );
   }
 
   void _add(OpenTab t) {

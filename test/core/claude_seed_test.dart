@@ -50,29 +50,34 @@ void main() {
     tearDown(() => tmp.deleteSync(recursive: true));
 
     Map<String, dynamic> read() =>
-        jsonDecode(File(sandboxPath).readAsStringSync()) as Map<String, dynamic>;
+        jsonDecode(File(sandboxPath).readAsStringSync())
+            as Map<String, dynamic>;
 
     test('writes a fresh file when none exists', () async {
       await writeClaudeSeed(
-          sharedSettingsPath: sharedPath,
-          sandboxSettingsPath: sandboxPath,
-          includePlugins: false);
+        sharedSettingsPath: sharedPath,
+        sandboxSettingsPath: sandboxPath,
+        includePlugins: false,
+      );
       expect(read().keys.toSet(), {'outputStyle', 'theme'});
     });
 
     test('seed keeps alcf-ai keys already in the sandbox file', () async {
       File(sandboxPath)
         ..createSync(recursive: true)
-        ..writeAsStringSync(jsonEncode({
-          'env': {'ANTHROPIC_BASE_URL': 'u'},
-          'apiKeyHelper': 'alcf-ai auth get-access-token',
-          'hooks': {'old': 1},
-          'enabledPlugins': {'x': true},
-        }));
+        ..writeAsStringSync(
+          jsonEncode({
+            'env': {'ANTHROPIC_BASE_URL': 'u'},
+            'apiKeyHelper': 'alcf-ai auth get-access-token',
+            'hooks': {'old': 1},
+            'enabledPlugins': {'x': true},
+          }),
+        );
       await writeClaudeSeed(
-          sharedSettingsPath: sharedPath,
-          sandboxSettingsPath: sandboxPath,
-          includePlugins: false);
+        sharedSettingsPath: sharedPath,
+        sandboxSettingsPath: sandboxPath,
+        includePlugins: false,
+      );
       final s = read();
       expect(s['env'], {'ANTHROPIC_BASE_URL': 'u'});
       expect(s['apiKeyHelper'], 'alcf-ai auth get-access-token');
@@ -80,19 +85,22 @@ void main() {
       expect(s.containsKey('enabledPlugins'), isFalse);
     });
 
-    test('seed replaces a symlinked settings.json without touching its target',
-        () async {
-      final before = File(sharedPath).readAsBytesSync();
-      Directory(File(sandboxPath).parent.path).createSync(recursive: true);
-      Link(sandboxPath).createSync(sharedPath);
-      await writeClaudeSeed(
+    test(
+      'seed replaces a symlinked settings.json without touching its target',
+      () async {
+        final before = File(sharedPath).readAsBytesSync();
+        Directory(File(sandboxPath).parent.path).createSync(recursive: true);
+        Link(sandboxPath).createSync(sharedPath);
+        await writeClaudeSeed(
           sharedSettingsPath: sharedPath,
           sandboxSettingsPath: sandboxPath,
-          includePlugins: true);
-      expect(FileSystemEntity.isLinkSync(sandboxPath), isFalse);
-      expect(File(sandboxPath).existsSync(), isTrue);
-      expect(File(sharedPath).readAsBytesSync(), before);
-      expect(read().containsKey('model'), isFalse);
-    });
+          includePlugins: true,
+        );
+        expect(FileSystemEntity.isLinkSync(sandboxPath), isFalse);
+        expect(File(sandboxPath).existsSync(), isTrue);
+        expect(File(sharedPath).readAsBytesSync(), before);
+        expect(read().containsKey('model'), isFalse);
+      },
+    );
   });
 }

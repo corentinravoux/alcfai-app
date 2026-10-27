@@ -53,9 +53,9 @@ class _NewSessionDialogState extends State<_NewSessionDialog> {
   String? _error;
 
   void _set(String path) => setState(() {
-        _ctrl.text = path;
-        _error = null;
-      });
+    _ctrl.text = path;
+    _error = null;
+  });
 
   Future<void> _browse() async {
     final p = await widget.pickFolder();
@@ -86,33 +86,43 @@ class _NewSessionDialogState extends State<_NewSessionDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.warning != null) ...[
-              Text(widget.warning!,
-                  style: t.bodyMedium?.copyWith(color: Tok.queued)),
+              Text(
+                widget.warning!,
+                style: t.bodyMedium?.copyWith(color: Tok.queued),
+              ),
               const SizedBox(height: 14),
             ],
             const Text('Working folder'),
             const SizedBox(height: 6),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _ctrl,
-                  autofocus: true,
-                  onSubmitted: (_) => _start(),
-                  style: const TextStyle(fontSize: 14),
-                  decoration: InputDecoration(errorText: _error),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    autofocus: true,
+                    onSubmitted: (_) => _start(),
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(errorText: _error),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(onPressed: _browse, child: const Text('Browse')),
-            ]),
+                const SizedBox(width: 8),
+                OutlinedButton(onPressed: _browse, child: const Text('Browse')),
+              ],
+            ),
             const SizedBox(height: 6),
-            Text('The agent starts in this folder and works on its files.',
-                style: t.bodySmall),
+            Text(
+              'The agent starts in this folder and works on its files.',
+              style: t.bodySmall,
+            ),
             if (recent.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('Recent folders',
-                  style: t.bodySmall?.copyWith(
-                      color: Tok.faint, fontWeight: FontWeight.w700)),
+              Text(
+                'Recent folders',
+                style: t.bodySmall?.copyWith(
+                  color: Tok.faint,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 4),
               for (var i = 0; i < recent.length; i++)
                 InkWell(
@@ -121,11 +131,15 @@ class _NewSessionDialogState extends State<_NewSessionDialog> {
                   hoverColor: Tok.raised,
                   onTap: () => _set(recent[i]),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-                    child: Text(recent[i],
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13.5)),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 6,
+                    ),
+                    child: Text(
+                      recent[i],
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13.5),
+                    ),
                   ),
                 ),
             ],

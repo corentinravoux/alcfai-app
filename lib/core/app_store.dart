@@ -15,6 +15,9 @@ class AgentChoice {
 
   @override
   int get hashCode => Object.hash(cluster, model);
+
+  @override
+  String toString() => 'AgentChoice($cluster, $model)';
 }
 
 /// A tab to offer again on next start.
@@ -69,12 +72,12 @@ class AppStore {
       }
       recentFolders = [
         for (final r in (v['recentFolders'] as List? ?? const []))
-          if (r is String) r
+          if (r is String) r,
       ];
       lastTabs = [
         for (final t in (v['lastTabs'] as List? ?? const []))
           if (t is Map && t['profile'] is String && t['cwd'] is String)
-            SavedTab(t['profile'], t['cwd'])
+            SavedTab(t['profile'], t['cwd']),
       ];
       final fs = v['fontSize'];
       fontSize = fs is num ? fs.toDouble() : null;
@@ -87,12 +90,14 @@ class AppStore {
     final f = File(path);
     await f.parent.create(recursive: true);
     final tmp = File('$path.tmp');
-    await tmp.writeAsString(const JsonEncoder.withIndent('  ').convert({
-      'choices': {for (final e in choices.entries) e.key: e.value.toJson()},
-      'recentFolders': recentFolders,
-      'lastTabs': [for (final t in lastTabs) t.toJson()],
-      'fontSize': ?fontSize,
-    }));
+    await tmp.writeAsString(
+      const JsonEncoder.withIndent('  ').convert({
+        'choices': {for (final e in choices.entries) e.key: e.value.toJson()},
+        'recentFolders': recentFolders,
+        'lastTabs': [for (final t in lastTabs) t.toJson()],
+        'fontSize': ?fontSize,
+      }),
+    );
     await tmp.rename(path);
   }
 }

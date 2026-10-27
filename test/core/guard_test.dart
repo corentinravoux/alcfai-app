@@ -23,8 +23,11 @@ void main() {
   test('snapshot hashes through symlinks; missing file is null', () async {
     final target = File('${tmp.path}/t.json')..writeAsStringSync('{}');
     Link('${tmp.path}/l.json').createSync(target.path);
-    final g = RealConfigGuard(
-        [target.path, '${tmp.path}/l.json', '${tmp.path}/missing']);
+    final g = RealConfigGuard([
+      target.path,
+      '${tmp.path}/l.json',
+      '${tmp.path}/missing',
+    ]);
     final s = await g.snapshot();
     expect(s[target.path], isNotNull);
     expect(s['${tmp.path}/l.json'], s[target.path]);

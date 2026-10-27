@@ -36,7 +36,8 @@ ThemeData buildTheme() {
     outline: Tok.line,
   );
   final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(Tok.radius));
+    borderRadius: BorderRadius.circular(Tok.radius),
+  );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
@@ -55,9 +56,10 @@ ThemeData buildTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-          shape: shape,
-          foregroundColor: Tok.text,
-          side: const BorderSide(color: Tok.line)),
+        shape: shape,
+        foregroundColor: Tok.text,
+        side: const BorderSide(color: Tok.line),
+      ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(shape: shape, foregroundColor: Tok.accent),
@@ -67,11 +69,13 @@ ThemeData buildTheme() {
       filled: true,
       fillColor: Tok.bg,
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Tok.radius),
-          borderSide: const BorderSide(color: Tok.line)),
+        borderRadius: BorderRadius.circular(Tok.radius),
+        borderSide: const BorderSide(color: Tok.line),
+      ),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Tok.radius),
-          borderSide: const BorderSide(color: Tok.line)),
+        borderRadius: BorderRadius.circular(Tok.radius),
+        borderSide: const BorderSide(color: Tok.line),
+      ),
     ),
     tooltipTheme: const TooltipThemeData(
       decoration: BoxDecoration(color: Tok.raised),

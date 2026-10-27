@@ -55,19 +55,19 @@ void main() {
   late String sharedPath;
 
   AlcfCli cli() => AlcfCli(
-        runner: runner,
-        sandbox: sb,
-        guard: RealConfigGuard(RealConfigGuard.defaultPaths(realHome)),
-        alcfExe: '/bin/alcf-ai',
-        tokensExe: '/bin/alcf-tokens',
-        uvCacheDir: '/uvcache',
-        sharedSettingsPath: sharedPath,
-        parentEnv: {
-          'HOME': realHome,
-          'PATH': '/bin',
-          'CLAUDE_CONFIG_DIR': '$realHome/.claude-alt',
-        },
-      );
+    runner: runner,
+    sandbox: sb,
+    guard: RealConfigGuard(RealConfigGuard.defaultPaths(realHome)),
+    alcfExe: '/bin/alcf-ai',
+    tokensExe: '/bin/alcf-tokens',
+    uvCacheDir: '/uvcache',
+    sharedSettingsPath: sharedPath,
+    parentEnv: {
+      'HOME': realHome,
+      'PATH': '/bin',
+      'CLAUDE_CONFIG_DIR': '$realHome/.claude-alt',
+    },
+  );
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('alcfai_cli_');
@@ -77,12 +77,17 @@ void main() {
     sharedPath = '$realHome/Software/claude_config/claude/settings.json';
     File(sharedPath)
       ..createSync(recursive: true)
-      ..writeAsStringSync(jsonEncode({
-        'model': 'opus',
-        'outputStyle': 'Concise',
-        'enabledPlugins': {'x': true},
-      }));
-    sb = Sandbox(root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+      ..writeAsStringSync(
+        jsonEncode({
+          'model': 'opus',
+          'outputStyle': 'Concise',
+          'enabledPlugins': {'x': true},
+        }),
+      );
+    sb = Sandbox(
+      root: '$realHome/.local/share/alcfai/home',
+      realHome: realHome,
+    );
     runner = FakeRunner();
   });
 
@@ -96,8 +101,15 @@ void main() {
     expect(r, isA<ConfigureOk>());
     final c = configureCalls().single;
     expect(c.exe, '/bin/alcf-ai');
-    expect(c.args,
-        ['agent', 'configure', 'claude', '-m', 'inkling-bf16', '-c', 'minerva']);
+    expect(c.args, [
+      'agent',
+      'configure',
+      'claude',
+      '-m',
+      'inkling-bf16',
+      '-c',
+      'minerva',
+    ]);
     expect(c.env!['HOME'], sb.home);
     expect(c.env!['UV_CACHE_DIR'], '/uvcache');
     expect(c.env!.containsKey('CLAUDE_CONFIG_DIR'), isFalse);
@@ -107,8 +119,9 @@ void main() {
   test('configure seeds claude settings before alcf-ai', () async {
     Map<String, dynamic>? seen;
     runner.handlers['/bin/alcf-ai agent configure'] = (c) {
-      seen = jsonDecode(File('${sb.claudeDir}/settings.json').readAsStringSync())
-          as Map<String, dynamic>;
+      seen = jsonDecode(
+        File('${sb.claudeDir}/settings.json').readAsStringSync(),
+      ) as Map<String, dynamic>;
       return const RunResult(0, '', '');
     };
     await cli().configure(AgentKind.claude);
@@ -118,12 +131,16 @@ void main() {
 
   test('configure passes includePlugins to seed and plugins link', () async {
     await cli().configure(AgentKind.claude, includePlugins: true);
-    final s = jsonDecode(File('${sb.claudeDir}/settings.json').readAsStringSync());
+    final s = jsonDecode(
+      File('${sb.claudeDir}/settings.json').readAsStringSync(),
+    );
     expect(s['enabledPlugins'], {'x': true});
     expect(FileSystemEntity.isLinkSync('${sb.claudeDir}/plugins'), isTrue);
 
     await cli().configure(AgentKind.claude, includePlugins: false);
-    final s2 = jsonDecode(File('${sb.claudeDir}/settings.json').readAsStringSync());
+    final s2 = jsonDecode(
+      File('${sb.claudeDir}/settings.json').readAsStringSync(),
+    );
     expect(s2.containsKey('enabledPlugins'), isFalse);
     expect(FileSystemEntity.isLinkSync('${sb.claudeDir}/plugins'), isFalse);
   });
@@ -137,34 +154,51 @@ void main() {
   });
 
   test('configure adds --include-experimental when asked', () async {
-    await cli().configure(AgentKind.pi,
-        model: 'm', cluster: 'tara', experimental: true);
-    expect(configureCalls().single.args,
-        ['agent', 'configure', 'pi', '-m', 'm', '-c', 'tara', '--include-experimental']);
+    await cli().configure(
+      AgentKind.pi,
+      model: 'm',
+      cluster: 'tara',
+      experimental: true,
+    );
+    expect(configureCalls().single.args, [
+      'agent',
+      'configure',
+      'pi',
+      '-m',
+      'm',
+      '-c',
+      'tara',
+      '--include-experimental',
+    ]);
   });
 
   test('configure returns LoginNeeded when token check fails', () async {
-    runner.handlers['/bin/alcf-tokens get-token inference'] =
-        (_) => const RunResult(1, '', 'no tokens');
+    runner.handlers['/bin/alcf-tokens get-token inference'] = (_) =>
+        const RunResult(1, '', 'no tokens');
     expect(await cli().configure(AgentKind.claude), isA<LoginNeeded>());
     expect(configureCalls(), isEmpty);
     expect(await cli().tokenOk(), isFalse);
   });
 
-  test('configure reports RealConfigTouched when a guarded file changes',
-      () async {
-    runner.handlers['/bin/alcf-ai agent configure'] = (_) {
-      File('$realHome/.claude/settings.json').writeAsStringSync('{"env": {}}');
-      return const RunResult(0, '', '');
-    };
-    final r = await cli().configure(AgentKind.claude);
-    expect(r, isA<RealConfigTouched>());
-    expect((r as RealConfigTouched).paths, ['$realHome/.claude/settings.json']);
-  });
+  test(
+    'configure reports RealConfigTouched when a guarded file changes',
+    () async {
+      runner.handlers['/bin/alcf-ai agent configure'] = (_) {
+        File('$realHome/.claude/settings.json')
+            .writeAsStringSync('{"env": {}}');
+        return const RunResult(0, '', '');
+      };
+      final r = await cli().configure(AgentKind.claude);
+      expect(r, isA<RealConfigTouched>());
+      expect((r as RealConfigTouched).paths, [
+        '$realHome/.claude/settings.json',
+      ]);
+    },
+  );
 
   test('configure maps non-zero exit to ConfigureFailed', () async {
-    runner.handlers['/bin/alcf-ai agent configure'] =
-        (_) => const RunResult(1, '', 'Traceback\nValueError: bad model\n');
+    runner.handlers['/bin/alcf-ai agent configure'] = (_) =>
+        const RunResult(1, '', 'Traceback\nValueError: bad model\n');
     final r = await cli().configure(AgentKind.pi);
     expect((r as ConfigureFailed).message, 'ValueError: bad model');
   });
@@ -174,45 +208,56 @@ void main() {
   });
 
   test('explainError maps known ALCF errors', () {
-    expect(explainError('x IdentityMismatchError: Detected a change'),
-        contains('alcf-tokens clear-tokens'));
-    expect(explainError('HTTP 429 Too Many Requests'),
-        contains('rate limit, wait and retry'));
-    expect(explainError('Permission denied'),
-        contains('run alcf-tokens login inference'));
-    expect(explainError('httpx.ReadTimeout: timed out'),
-        contains('model may be queued: check its status and retry'));
+    expect(
+      explainError('x IdentityMismatchError: Detected a change'),
+      contains('alcf-tokens clear-tokens'),
+    );
+    expect(
+      explainError('HTTP 429 Too Many Requests'),
+      contains('rate limit, wait and retry'),
+    );
+    expect(
+      explainError('Permission denied'),
+      contains('run alcf-tokens login inference'),
+    );
+    expect(
+      explainError('httpx.ReadTimeout: timed out'),
+      contains('model may be queued: check its status and retry'),
+    );
     expect(explainError('first\nlast line\n\n'), 'last line');
   });
 
   test('listModels parses ls-models JSON', () async {
-    runner.handlers['/bin/alcf-ai ls-models minerva'] =
-        (_) => const RunResult(0, lsModels, '');
+    runner.handlers['/bin/alcf-ai ls-models minerva'] = (_) =>
+        const RunResult(0, lsModels, '');
     final all = await cli().listModels('minerva');
     expect(all.map((m) => m.id), ['beam-1.0-bf16', 'plain-model']);
     expect(all.first.displayName, 'Beam 1.0 BF16');
     expect(all.first.contextTokens, 1048576);
-    final claude = await cli().listModels('minerva', forAgent: AgentKind.claude);
+    final claude = await cli().listModels(
+      'minerva',
+      forAgent: AgentKind.claude,
+    );
     expect(claude.map((m) => m.id), ['beam-1.0-bf16']);
   });
 
   test('listModels returns empty list on bad JSON', () async {
-    runner.handlers['/bin/alcf-ai ls-models'] =
-        (_) => const RunResult(0, 'not json', '');
+    runner.handlers['/bin/alcf-ai ls-models'] = (_) =>
+        const RunResult(0, 'not json', '');
     expect(await cli().listModels('minerva'), isEmpty);
   });
 
   test('modelStatus parses ls-jobs repr', () async {
-    runner.handlers['/bin/alcf-ai ls-jobs minerva'] =
-        (_) => const RunResult(0, lsJobs, '');
+    runner.handlers['/bin/alcf-ai ls-jobs minerva'] = (_) =>
+        const RunResult(0, lsJobs, '');
     expect(await cli().modelStatus('minerva'), {
       'gpt-oss-120b': ModelStatus.running,
       'beam-1.0-bf16': ModelStatus.running,
       'inkling-bf16': ModelStatus.queued,
       'muse-spark-bf16': ModelStatus.offline,
     });
-    runner.handlers['/bin/alcf-ai ls-jobs minerva'] =
-        (_) => const RunResult(0, '<<garbage>>', '');
+    runner.handlers['/bin/alcf-ai ls-jobs minerva'] = (_) =>
+        const RunResult(0, '<<garbage>>', '');
     expect(await cli().modelStatus('minerva'), isEmpty);
   });
 

@@ -10,8 +10,10 @@ const kPluginKeys = ['hooks', 'enabledPlugins', 'extraKnownMarketplaces'];
 /// Keys alcf-ai writes; kept across re-seeds so ALCF keeps working.
 const kAlcfKeys = ['env', 'apiKeyHelper'];
 
-Map<String, dynamic> buildClaudeSeed(Map<String, dynamic> shared,
-    {required bool includePlugins}) {
+Map<String, dynamic> buildClaudeSeed(
+  Map<String, dynamic> shared, {
+  required bool includePlugins,
+}) {
   final keys = [...kSeedKeys, if (includePlugins) ...kPluginKeys];
   return {
     for (final k in keys)

@@ -58,13 +58,18 @@ String explainError(String stderr) {
   if (s.contains('429') || s.contains('too many requests')) {
     return 'ALCF rate limit, wait and retry.';
   }
-  if (s.contains('permission denied') || s.contains('401') || s.contains('403')) {
+  if (s.contains('permission denied') ||
+      s.contains('401') ||
+      s.contains('403')) {
     return 'ALCF refused the token: run alcf-tokens login inference.';
   }
   if (s.contains('timed out') || s.contains('timeout')) {
     return 'No answer from ALCF: the model may be queued: check its status and retry.';
   }
-  final lines = stderr.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty);
+  final lines = stderr
+      .split('\n')
+      .map((l) => l.trim())
+      .where((l) => l.isNotEmpty);
   return lines.isEmpty ? 'alcf-ai failed without a message.' : lines.last;
 }
 
@@ -95,19 +100,22 @@ class AlcfCli {
 
   /// Parent env without any agent-routing variable.
   Map<String, String> get _cleanEnv => {
-        for (final e in parentEnv.entries)
-          if (!kStrippedEnvKeys.contains(e.key) &&
-              !e.key.startsWith('ANTHROPIC_'))
-            e.key: e.value,
-      };
+    for (final e in parentEnv.entries)
+      if (!kStrippedEnvKeys.contains(e.key) && !e.key.startsWith('ANTHROPIC_'))
+        e.key: e.value,
+  };
 
   Future<bool> tokenOk() async =>
-      (await runner.run(tokensExe, ['get-token', 'inference'], env: _cleanEnv))
-          .exitCode ==
+      (await runner.run(tokensExe, [
+        'get-token',
+        'inference',
+      ], env: _cleanEnv)).exitCode ==
       0;
 
-  Future<List<AlcfModel>> listModels(String cluster,
-      {AgentKind? forAgent}) async {
+  Future<List<AlcfModel>> listModels(
+    String cluster, {
+    AgentKind? forAgent,
+  }) async {
     final r = await runner.run(alcfExe, ['ls-models', cluster], env: _cleanEnv);
     final List<dynamic> raw;
     try {
@@ -121,17 +129,21 @@ class AlcfCli {
     for (final m in raw.whereType<Map<String, dynamic>>()) {
       final id = m['id'];
       if (id is! String) continue;
-      final caps = m['capabilities'] is Map ? m['capabilities'] as Map : const {};
+      final caps = m['capabilities'] is Map
+          ? m['capabilities'] as Map
+          : const {};
       final protocols = [
-        for (final p in (caps['api_protocols'] as List? ?? const [])) '$p'
+        for (final p in (caps['api_protocols'] as List? ?? const [])) '$p',
       ];
       final ctx = caps['context_window_tokens'];
-      models.add(AlcfModel(
-        id: id,
-        displayName: m['display_name'] is String ? m['display_name'] : id,
-        protocols: protocols,
-        contextTokens: ctx is int ? ctx : null,
-      ));
+      models.add(
+        AlcfModel(
+          id: id,
+          displayName: m['display_name'] is String ? m['display_name'] : id,
+          protocols: protocols,
+          contextTokens: ctx is int ? ctx : null,
+        ),
+      );
     }
     if (forAgent == AgentKind.claude) {
       return models.where((m) => m.protocols.contains('messages')).toList();
@@ -180,7 +192,13 @@ class AlcfCli {
     final r = await runner.run(
       alcfExe,
       [
-        'agent', 'configure', kind.exe, '-m', model, '-c', cluster,
+        'agent',
+        'configure',
+        kind.exe,
+        '-m',
+        model,
+        '-c',
+        cluster,
         if (experimental) '--include-experimental',
       ],
       env: {..._cleanEnv, 'HOME': sandbox.home, 'UV_CACHE_DIR': uvCacheDir},

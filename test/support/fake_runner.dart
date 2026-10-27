@@ -19,8 +19,11 @@ class FakeRunner implements Runner {
   final calls = <Call>[];
 
   @override
-  Future<RunResult> run(String exe, List<String> args,
-      {Map<String, String>? env}) async {
+  Future<RunResult> run(
+    String exe,
+    List<String> args, {
+    Map<String, String>? env,
+  }) async {
     final c = Call(exe, args, env);
     calls.add(c);
     for (final e in handlers.entries) {

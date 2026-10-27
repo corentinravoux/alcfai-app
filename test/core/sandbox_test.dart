@@ -14,7 +14,10 @@ void main() {
     realHome = '${tmp.path}/home';
     Directory('$realHome/.globus').createSync(recursive: true);
     Directory('$realHome/.claude/plugins').createSync(recursive: true);
-    sb = Sandbox(root: '$realHome/.local/share/alcfai/home', realHome: realHome);
+    sb = Sandbox(
+      root: '$realHome/.local/share/alcfai/home',
+      realHome: realHome,
+    );
   });
 
   tearDown(() => tmp.deleteSync(recursive: true));
@@ -32,8 +35,10 @@ void main() {
     expect(sb.overrideValue(AgentKind.claude), '$h/.claude');
     expect(sb.overrideValue(AgentKind.codex), '$h/.codex');
     expect(sb.overrideValue(AgentKind.pi), '$h/.pi/agent');
-    expect(sb.overrideValue(AgentKind.opencode),
-        '$h/.config/opencode/opencode.jsonc');
+    expect(
+      sb.overrideValue(AgentKind.opencode),
+      '$h/.config/opencode/opencode.jsonc',
+    );
   });
 
   test('isConfigured', () async {

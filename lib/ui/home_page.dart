@@ -9,11 +9,18 @@ import 'terminal_tab.dart';
 import 'theme.dart';
 
 typedef ConfigureAction = Future<void> Function(
-    BuildContext context, AppState state, Profile profile);
+  BuildContext context,
+  AppState state,
+  Profile profile,
+);
 
 class HomePage extends StatelessWidget {
-  const HomePage(
-      {super.key, required this.state, this.onConfigure, this.pickFolder});
+  const HomePage({
+    super.key,
+    required this.state,
+    this.onConfigure,
+    this.pickFolder,
+  });
 
   final AppState state;
   final ConfigureAction? onConfigure;
@@ -25,10 +32,12 @@ class HomePage extends StatelessWidget {
     final status = await state.statusFor(p);
     final c = state.choiceFor(p);
     if (c != null && status == ModelStatus.queued) {
-      warning = '${c.model} is queued on ${c.cluster}. The first answer can '
+      warning =
+          '${c.model} is queued on ${c.cluster}. The first answer can '
           'take several minutes while it loads.';
     } else if (c != null && status == ModelStatus.offline) {
-      warning = '${c.model} is not loaded on ${c.cluster}. ALCF starts it on '
+      warning =
+          '${c.model} is not loaded on ${c.cluster}. ALCF starts it on '
           'the first request, which can take several minutes.';
     }
     if (!context.mounted) return;
@@ -53,8 +62,7 @@ class HomePage extends StatelessWidget {
             Sidebar(
               state: state,
               onOpen: (s) => _open(context, s),
-              onConfigure: (s) =>
-                  onConfigure?.call(context, state, s.profile),
+              onConfigure: (s) => onConfigure?.call(context, state, s.profile),
             ),
             Expanded(
               child: Column(
@@ -102,13 +110,17 @@ class _Banner extends StatelessWidget {
     final String text;
     Widget? action;
     if (!state.alcfAvailable) {
-      text = 'ALCF agents need alcf-ai and alcf-tokens. Install them with '
+      text =
+          'ALCF agents need alcf-ai and alcf-tokens. Install them with '
           'uv tool install alcf-ai and uv tool install alcf-tokens, then restart.';
     } else if (!state.alcfLoggedIn) {
-      text = 'You are not signed in to ALCF. ALCF agents need a login, '
+      text =
+          'You are not signed in to ALCF. ALCF agents need a login, '
           'which lasts 30 days.';
       action = FilledButton(
-          onPressed: state.openLogin, child: const Text('Log in'));
+        onPressed: state.openLogin,
+        child: const Text('Log in'),
+      );
     } else {
       return const SizedBox.shrink();
     }
@@ -119,18 +131,24 @@ class _Banner extends StatelessWidget {
         color: Tok.raised,
         border: Border(bottom: BorderSide(color: Tok.line)),
       ),
-      child: Row(children: [
-        Expanded(child: Text(text)),
-        if (action != null) ...[const SizedBox(width: 12), action],
-        if (state.alcfAvailable) ...[
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Check again',
-            onPressed: state.refresh,
-            icon: const Icon(Icons.refresh_rounded, size: 18, color: Tok.muted),
-          ),
+      child: Row(
+        children: [
+          Expanded(child: Text(text)),
+          if (action != null) ...[const SizedBox(width: 12), action],
+          if (state.alcfAvailable) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Check again',
+              onPressed: state.refresh,
+              icon: const Icon(
+                Icons.refresh_rounded,
+                size: 18,
+                color: Tok.muted,
+              ),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -169,11 +187,14 @@ class _TabChip extends StatelessWidget {
       final stop = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Stop ${t.title}?',
-              style: Theme.of(context).textTheme.titleMedium),
+          title: Text(
+            'Stop ${t.title}?',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           content: const Text(
-              'The agent is still running. Closing the tab stops it and '
-              'loses anything it has not saved.'),
+            'The agent is still running. Closing the tab stops it and '
+            'loses anything it has not saved.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -208,27 +229,31 @@ class _TabChip extends StatelessWidget {
           color: active ? Tok.bg : Colors.transparent,
           border: Border(
             bottom: BorderSide(
-                color: active ? Tok.accent : Colors.transparent, width: 2),
+              color: active ? Tok.accent : Colors.transparent,
+              width: 2,
+            ),
             right: const BorderSide(color: Tok.line),
           ),
         ),
-        child: Row(children: [
-          Text(
-            exited ? '${t.title} (ended)' : t.title,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w400,
-              color: exited ? Tok.faint : (active ? Tok.text : Tok.muted),
+        child: Row(
+          children: [
+            Text(
+              exited ? '${t.title} (ended)' : t.title,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                color: exited ? Tok.faint : (active ? Tok.text : Tok.muted),
+              ),
             ),
-          ),
-          IconButton(
-            key: ValueKey('close-tab-$index'),
-            tooltip: 'Close session',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _close(context),
-            icon: const Icon(Icons.close_rounded, size: 15, color: Tok.faint),
-          ),
-        ]),
+            IconButton(
+              key: ValueKey('close-tab-$index'),
+              tooltip: 'Close session',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _close(context),
+              icon: const Icon(Icons.close_rounded, size: 15, color: Tok.faint),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -253,39 +278,44 @@ class _RouteBar extends StatelessWidget {
         color: Tok.bg,
         border: Border(bottom: BorderSide(color: Tok.line)),
       ),
-      child: Row(children: [
-        Container(
-          width: 3,
-          height: 14,
-          color: alcf ? Tok.accent : Tok.muted,
-        ),
-        const SizedBox(width: 10),
-        Text('Runs on ',
-            style: Theme.of(context).textTheme.bodySmall),
-        Flexible(
-          child: Text(tab.route,
+      child: Row(
+        children: [
+          Container(width: 3, height: 14, color: alcf ? Tok.accent : Tok.muted),
+          const SizedBox(width: 10),
+          Text('Runs on ', style: Theme.of(context).textTheme.bodySmall),
+          Flexible(
+            child: Text(
+              tab.route,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w700, color: Tok.text)),
-        ),
-        const Spacer(),
-        Flexible(
-          child: Text('in ${tab.spec.cwd}',
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall),
-        ),
-        if (!tab.running) ...[
-          const SizedBox(width: 12),
-          TextButton(
-            key: const ValueKey('restart-tab'),
-            style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10)),
-            onPressed: () => state.restart(index),
-            child: const Text('Restart'),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Tok.text,
+              ),
+            ),
           ),
+          const Spacer(),
+          Flexible(
+            child: Text(
+              'in ${tab.spec.cwd}',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          if (!tab.running) ...[
+            const SizedBox(width: 12),
+            TextButton(
+              key: const ValueKey('restart-tab'),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              onPressed: () => state.restart(index),
+              child: const Text('Restart'),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -305,8 +335,10 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Start a session',
-                style: t.titleMedium?.copyWith(fontSize: 22)),
+            Text(
+              'Start a session',
+              style: t.titleMedium?.copyWith(fontSize: 22),
+            ),
             const SizedBox(height: 10),
             Text(
               'Pick an agent on the left. Each session runs in its own tab, '

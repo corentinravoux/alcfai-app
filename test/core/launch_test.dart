@@ -20,13 +20,13 @@ void main() {
   };
 
   LaunchSpec launch(String id, {String cwd = '/w'}) => buildLaunch(
-        profiles[id]!,
-        sandbox: sb,
-        parentEnv: parentEnv,
-        exePath: '/bin/${profiles[id]!.kind.exe}',
-        cwd: cwd,
-        sessionId: 'sid',
-      );
+    profiles[id]!,
+    sandbox: sb,
+    parentEnv: parentEnv,
+    exePath: '/bin/${profiles[id]!.kind.exe}',
+    cwd: cwd,
+    sessionId: 'sid',
+  );
 
   test('defaultProfiles ids and labels', () {
     expect(defaultProfiles('/h').map((p) => '${p.id}|${p.label}'), [
@@ -108,10 +108,14 @@ void main() {
   "alcf-inference-service-sophia-vllm": {"models": [{"id": "openai/gpt-oss-120b"}]},
   "alcf-inference-service-minerva-api": {"models": [{"id": "gpt-oss-120b"}, {"id": "inkling-bf16"}]}
 }}""");
-    expect(piModelArgs(box, const AgentChoice('minerva', 'inkling-bf16')),
-        ['--model', 'alcf-inference-service-minerva-api/inkling-bf16']);
-    expect(piModelArgs(box, const AgentChoice('sophia', 'openai/gpt-oss-120b')),
-        ['--model', 'alcf-inference-service-sophia-vllm/openai/gpt-oss-120b']);
+    expect(piModelArgs(box, const AgentChoice('minerva', 'inkling-bf16')), [
+      '--model',
+      'alcf-inference-service-minerva-api/inkling-bf16',
+    ]);
+    expect(
+      piModelArgs(box, const AgentChoice('sophia', 'openai/gpt-oss-120b')),
+      ['--model', 'alcf-inference-service-sophia-vllm/openai/gpt-oss-120b'],
+    );
     expect(piModelArgs(box, const AgentChoice('tara', 'x')), isEmpty);
     expect(piModelArgs(box, null), isEmpty);
   });
