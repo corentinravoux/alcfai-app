@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:alcfai_app/app/app_state.dart';
 import 'package:alcfai_app/core/alcf_cli.dart';
+import 'package:alcfai_app/core/app_store.dart';
 import 'package:alcfai_app/core/guard.dart';
 import 'package:alcfai_app/core/launch.dart';
 import 'package:alcfai_app/core/profiles.dart';
@@ -51,6 +52,7 @@ void main() {
       },
       parentEnv: {'HOME': realHome, 'PATH': '/bin'},
       defaultCwd: tmp.path,
+      store: AppStore('${tmp.path}/state.json'),
     );
   }
 
