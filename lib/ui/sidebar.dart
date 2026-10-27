@@ -140,15 +140,15 @@ class _ProfileTile extends StatelessWidget {
     final List<Widget> actions;
     if (!status.installed) {
       actions = [
-        IconButton(
-            key: ValueKey('open-$id'),
-            onPressed: null,
-            icon: const Icon(Icons.play_arrow_rounded)),
         if (p.isAlcf)
           IconButton(
               key: ValueKey('configure-$id'),
               onPressed: null,
-              icon: const Icon(Icons.tune_rounded)),
+              icon: const Icon(Icons.tune_rounded, size: 18)),
+        IconButton(
+            key: ValueKey('open-$id'),
+            onPressed: null,
+            icon: const Icon(Icons.play_arrow_rounded)),
       ];
     } else if (p.isAlcf && !status.configured) {
       actions = [
