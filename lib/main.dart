@@ -10,6 +10,7 @@ import 'core/profiles.dart';
 import 'core/pty.dart';
 import 'core/runner.dart';
 import 'core/sandbox.dart';
+import 'ui/configure_dialog.dart';
 import 'ui/home_page.dart';
 import 'ui/theme.dart';
 
@@ -49,7 +50,7 @@ void main() {
     defaultCwd: defaultCwd,
   );
 
-  runApp(AlcfaiApp(state: state));
+  runApp(AlcfaiApp(state: state, onConfigure: showConfigureDialog));
   sandbox.ensure().then((_) => state.refresh());
 }
 
