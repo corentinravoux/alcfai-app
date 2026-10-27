@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../core/alcf_cli.dart';
 import '../core/profiles.dart';
 import 'new_session_dialog.dart';
 import 'sidebar.dart';
@@ -11,15 +12,35 @@ typedef ConfigureAction = Future<void> Function(
     BuildContext context, AppState state, Profile profile);
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.state, this.onConfigure});
+  const HomePage(
+      {super.key, required this.state, this.onConfigure, this.pickFolder});
 
   final AppState state;
   final ConfigureAction? onConfigure;
+  final PickFolder? pickFolder;
 
   Future<void> _open(BuildContext context, ProfileStatus s) async {
-    final cwd =
-        await showNewSessionDialog(context, s.profile.label, state.defaultCwd);
-    if (cwd != null) state.open(s.profile, cwd);
+    final p = s.profile;
+    String? warning;
+    final status = await state.statusFor(p);
+    final c = state.choiceFor(p);
+    if (c != null && status == ModelStatus.queued) {
+      warning = '${c.model} is queued on ${c.cluster}. The first answer can '
+          'take several minutes while it loads.';
+    } else if (c != null && status == ModelStatus.offline) {
+      warning = '${c.model} is not loaded on ${c.cluster}. ALCF starts it on '
+          'the first request, which can take several minutes.';
+    }
+    if (!context.mounted) return;
+    final cwd = await showNewSessionDialog(
+      context,
+      p.label,
+      state.defaultCwd,
+      recent: state.recentFolders,
+      warning: warning,
+      pickFolder: pickFolder,
+    );
+    if (cwd != null) state.open(p, cwd);
   }
 
   @override
@@ -40,10 +61,10 @@ class HomePage extends StatelessWidget {
                 children: [
                   _Banner(state: state),
                   if (state.tabs.isEmpty)
-                    const Expanded(child: _EmptyState())
+                    Expanded(child: _EmptyState(state: state))
                   else ...[
                     _TabStrip(state: state),
-                    _RouteBar(tab: state.tabs[state.active]),
+                    _RouteBar(state: state, index: state.active),
                     Expanded(
                       child: IndexedStack(
                         index: state.active,
@@ -55,6 +76,8 @@ class HomePage extends StatelessWidget {
                               start: state.start,
                               title: t.title,
                               onExit: (code) => state.markExited(t, code),
+                              fontSize: state.fontSize,
+                              onZoom: state.zoom,
                             ),
                         ],
                       ),
@@ -140,6 +163,37 @@ class _TabChip extends StatelessWidget {
   final AppState state;
   final int index;
 
+  Future<void> _close(BuildContext context) async {
+    final t = state.tabs[index];
+    if (t.running) {
+      final stop = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Stop ${t.title}?',
+              style: Theme.of(context).textTheme.titleMedium),
+          content: const Text(
+              'The agent is still running. Closing the tab stops it and '
+              'loses anything it has not saved.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              style: TextButton.styleFrom(foregroundColor: Tok.muted),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Tok.danger),
+              child: const Text('Stop session'),
+            ),
+          ],
+        ),
+      );
+      if (stop != true) return;
+    }
+    final i = state.tabs.indexOf(t);
+    if (i >= 0) state.close(i);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = state.tabs[index];
@@ -171,7 +225,7 @@ class _TabChip extends StatelessWidget {
             key: ValueKey('close-tab-$index'),
             tooltip: 'Close session',
             visualDensity: VisualDensity.compact,
-            onPressed: () => state.close(index),
+            onPressed: () => _close(context),
             icon: const Icon(Icons.close_rounded, size: 15, color: Tok.faint),
           ),
         ]),
@@ -184,11 +238,13 @@ class _TabChip extends StatelessWidget {
 /// visual weight: running on the wrong backend is the failure this app
 /// exists to prevent.
 class _RouteBar extends StatelessWidget {
-  const _RouteBar({required this.tab});
-  final OpenTab tab;
+  const _RouteBar({required this.state, required this.index});
+  final AppState state;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
+    final tab = state.tabs[index];
     final alcf = tab.profile?.isAlcf ?? true;
     return Container(
       height: 30,
@@ -218,13 +274,25 @@ class _RouteBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall),
         ),
+        if (!tab.running) ...[
+          const SizedBox(width: 12),
+          TextButton(
+            key: const ValueKey('restart-tab'),
+            style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10)),
+            onPressed: () => state.restart(index),
+            child: const Text('Restart'),
+          ),
+        ],
       ]),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.state});
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +319,13 @@ class _EmptyState extends StatelessWidget {
               'own Claude setup stays as it is.',
               style: t.bodyMedium?.copyWith(color: Tok.muted, height: 1.5),
             ),
+            if (state.canReopen > 0) ...[
+              const SizedBox(height: 22),
+              OutlinedButton(
+                onPressed: state.reopenLast,
+                child: Text('Reopen last sessions (${state.canReopen})'),
+              ),
+            ],
           ],
         ),
       ),
