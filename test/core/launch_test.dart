@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:alcfai_app/core/agents.dart';
+import 'package:alcfai_app/core/app_store.dart';
 import 'package:alcfai_app/core/launch.dart';
 import 'package:alcfai_app/core/profiles.dart';
 import 'package:alcfai_app/core/sandbox.dart';
@@ -94,5 +95,24 @@ void main() {
     expect(whichOnPath('tool', env), exe.path);
     expect(whichOnPath('plain', env), isNull);
     expect(whichOnPath('missing', env), isNull);
+  });
+
+  test('piModelArgs picks the provider that serves the chosen model', () {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_pi_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final box = Sandbox(root: '${tmp.path}/home', realHome: tmp.path);
+    File('${box.home}/.pi/agent/models.json')
+      ..createSync(recursive: true)
+      ..writeAsStringSync("""
+{"providers": {
+  "alcf-inference-service-sophia-vllm": {"models": [{"id": "openai/gpt-oss-120b"}]},
+  "alcf-inference-service-minerva-api": {"models": [{"id": "gpt-oss-120b"}, {"id": "inkling-bf16"}]}
+}}""");
+    expect(piModelArgs(box, const AgentChoice('minerva', 'inkling-bf16')),
+        ['--model', 'alcf-inference-service-minerva-api/inkling-bf16']);
+    expect(piModelArgs(box, const AgentChoice('sophia', 'openai/gpt-oss-120b')),
+        ['--model', 'alcf-inference-service-sophia-vllm/openai/gpt-oss-120b']);
+    expect(piModelArgs(box, const AgentChoice('tara', 'x')), isEmpty);
+    expect(piModelArgs(box, null), isEmpty);
   });
 }

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'agents.dart';
+import 'app_store.dart';
 import 'profiles.dart';
 import 'sandbox.dart';
 
@@ -70,4 +72,27 @@ LaunchSpec buildLaunch(
   }
   env['TERM'] = 'xterm-256color';
   return LaunchSpec(executable: exePath, args: args, env: env, cwd: cwd);
+}
+
+/// `--model <provider>/<model>` for pi, found in the sandbox models.json
+/// (alcf-ai names providers `alcf-inference-service-<cluster>-<framework>`).
+/// Empty when nothing matches, so pi falls back to its own default.
+List<String> piModelArgs(Sandbox sandbox, AgentChoice? choice) {
+  if (choice == null) return const [];
+  try {
+    final v = jsonDecode(
+        File('${sandbox.home}/.pi/agent/models.json').readAsStringSync());
+    final providers = (v as Map)['providers'] as Map;
+    for (final e in providers.entries) {
+      final key = '${e.key}';
+      if (!key.startsWith('alcf-inference-service-${choice.cluster}-')) continue;
+      final models = (e.value as Map)['models'] as List? ?? const [];
+      if (models.any((m) => m is Map && m['id'] == choice.model)) {
+        return ['--model', '$key/${choice.model}'];
+      }
+    }
+  } on Object {
+    // No sandbox config yet: let pi choose.
+  }
+  return const [];
 }
