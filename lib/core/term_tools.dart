@@ -1,7 +1,7 @@
 /// Small text helpers for the terminal tab: link detection, search, zoom.
 library;
 
-const kDefaultFontSize = 13.5;
+const kTermFontSize = 13.5;
 const kMinFontSize = 9.0;
 const kMaxFontSize = 24.0;
 
@@ -54,5 +54,5 @@ List<TextHit> findAll(List<String> lines, String query) {
 
 /// Next font size: step +1 / -1 zooms, 0 resets.
 double zoomed(double size, int step) => step == 0
-    ? kDefaultFontSize
+    ? kTermFontSize
     : (size + step).clamp(kMinFontSize, kMaxFontSize).toDouble();

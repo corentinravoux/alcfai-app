@@ -26,6 +26,6 @@ void main() {
     expect(zoomed(13.5, -1), 12.5);
     expect(zoomed(24, 1), 24);
     expect(zoomed(9, -1), 9);
-    expect(zoomed(20, 0), kDefaultFontSize);
+    expect(zoomed(20, 0), kTermFontSize);
   });
 }

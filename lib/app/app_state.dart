@@ -83,7 +83,7 @@ class AppState extends ChangeNotifier {
   Future<void> saving = Future.value();
 
   bool get alcfAvailable => alcf != null;
-  double get fontSize => store.fontSize ?? kDefaultFontSize;
+  double get fontSize => store.fontSize ?? kTermFontSize;
   List<String> get recentFolders => store.recentFolders;
   int get canReopen => _offer.length;
 

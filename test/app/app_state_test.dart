@@ -149,17 +149,17 @@ void main() {
 
   test('zoom changes the font size and persists it', () async {
     final s = make();
-    expect(s.fontSize, kDefaultFontSize);
+    expect(s.fontSize, kTermFontSize);
     s.zoom(1);
     s.zoom(1);
-    expect(s.fontSize, kDefaultFontSize + 2);
+    expect(s.fontSize, kTermFontSize + 2);
     s.zoom(0);
-    expect(s.fontSize, kDefaultFontSize);
+    expect(s.fontSize, kTermFontSize);
     s.zoom(-1);
     await s.saving;
     final a = AppStore(store.path);
     await a.load();
-    expect(a.fontSize, kDefaultFontSize - 1);
+    expect(a.fontSize, kTermFontSize - 1);
   });
 
   test('statusFor reports the remembered model status', () async {
