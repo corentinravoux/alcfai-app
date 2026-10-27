@@ -25,6 +25,23 @@ agent with your real `HOME` and the variable above pointing into the sandbox.
 Before and after every configure run it hashes your real config files and
 reports any change.
 
+## In a session
+
+| keys | does |
+|---|---|
+| Ctrl+Shift+C / Ctrl+Shift+V | copy selection / paste |
+| Ctrl+Shift+A | select all output |
+| Ctrl+Shift+F | find in output (Enter next, Shift+Enter previous, Esc close) |
+| Ctrl+= / Ctrl+- / Ctrl+0 | bigger / smaller / default text |
+| Ctrl+click on a link | open it in the browser |
+
+Plain Ctrl+A, Ctrl+C and Ctrl+V go to the agent. Configure remembers the
+cluster and model per agent (Pi starts on it with `--model`). The app warns
+when that model is queued or offline, asks before closing a running session,
+offers Restart on an ended one, and offers to reopen last run's sessions.
+It re-checks the ALCF login every 3 hours. Its own state lives in
+`~/.local/share/alcfai/state.json`.
+
 ## Build and run
 
 ```bash
