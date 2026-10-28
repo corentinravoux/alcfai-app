@@ -112,10 +112,11 @@ void main() {
       },
     );
     await pump(tester);
-    await write(tester, 'copy me');
+    await write(tester, 'copy\x1b[1Cme');
     await chord(tester, LogicalKeyboardKey.keyA, shift: true);
     await chord(tester, LogicalKeyboardKey.keyC, shift: true);
     expect(clip, contains('copy me'));
+    expect(clip, isNot(contains('copyme')));
     await chord(tester, LogicalKeyboardKey.keyV, shift: true);
     expect(pty.written.join(), contains('pasted'));
   });

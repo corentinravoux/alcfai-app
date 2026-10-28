@@ -1,5 +1,6 @@
 import 'package:alcfai_app/core/term_tools.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xterm/xterm.dart';
 
 void main() {
   test('urlAt finds the URL under a column', () {
@@ -27,5 +28,30 @@ void main() {
     expect(zoomed(24, 1), 24);
     expect(zoomed(9, -1), 9);
     expect(zoomed(20, 0), kTermFontSize);
+  });
+
+  group('cell text', () {
+    Terminal term(String out) => Terminal()..write(out);
+
+    test('cells skipped by cursor moves read as spaces', () {
+      // ratatui draws "Called codex" as "Called", cursor-forward 1, "codex".
+      final t = term('Called\x1b[1Ccodex   ');
+      expect(t.buffer.lines[0].getText().trimRight(), 'Calledcodex');
+      expect(lineText(t.buffer.lines[0]), 'Called codex');
+    });
+
+    test('a wide character keeps its width, no extra space', () {
+      final t = term('a日\x1b[1Cb');
+      expect(lineText(t.buffer.lines[0]), 'a日 b');
+    });
+
+    test('selectionText joins lines, unwrapped ones with newlines', () {
+      final t = term('one\x1b[1Ctwo\r\nthree');
+      final range = BufferRangeLine(
+        CellOffset(0, 0),
+        CellOffset(t.viewWidth - 1, 1),
+      );
+      expect(selectionText(t.buffer, range), 'one two\nthree');
+    });
   });
 }

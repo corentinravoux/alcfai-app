@@ -63,6 +63,12 @@ Codex needs three workarounds for the ALCF gateway, which the app applies
 models (the only cluster serving the `responses` API). See
 [docs/e2e-2026-10-28-codex-opencode.md](docs/e2e-2026-10-28-codex-opencode.md).
 
+On Ubuntu 23.10+ codex's command sandbox (bubblewrap) fails inside the app
+with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, because
+unconfined programs may not use user namespaces. Run
+`./scripts/install-apparmor.sh` once (sudo): it installs the same
+userns-only profile Ubuntu ships for VS Code.
+
 Needs `alcf-ai` and `alcf-tokens` on `PATH` (`uv tool install alcf-ai`,
 `uv tool install alcf-tokens`) and a login (`alcf-tokens login inference`).
 

@@ -50,3 +50,7 @@ DESKTOP
 update-desktop-database "$apps" >/dev/null 2>&1 || true
 gtk-update-icon-cache -q -t "$hicolor" >/dev/null 2>&1 || true
 echo "Installed to $dest. Launch ALCF AI from the applications menu."
+if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ] \
+  && [ ! -e /etc/apparmor.d/alcfai-app ]; then
+  echo "Codex's sandbox needs an AppArmor profile here: run ./scripts/install-apparmor.sh (sudo)."
+fi

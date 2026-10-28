@@ -19,12 +19,18 @@ void openWithXdg(String url) {
 /// Ctrl+A / Ctrl+C / Ctrl+V still reach the agent.
 final kTerminalShortcuts = <ShortcutActivator, Intent>{
   const SingleActivator(LogicalKeyboardKey.keyC, control: true, shift: true):
-      CopySelectionTextIntent.copy,
+      const CopyTerminalTextIntent(),
   const SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true):
       const PasteTextIntent(SelectionChangedCause.keyboard),
   const SingleActivator(LogicalKeyboardKey.keyA, control: true, shift: true):
       const SelectAllTextIntent(SelectionChangedCause.keyboard),
 };
+
+/// Copy handled by the tab rather than xterm, whose copy drops the blank
+/// cells full-screen UIs skip over (see [selectionText]).
+class CopyTerminalTextIntent extends Intent {
+  const CopyTerminalTextIntent();
+}
 
 /// One running agent: a pseudo-terminal process drawn by xterm.
 /// The process lives as long as the widget; hidden tabs keep running
@@ -132,7 +138,7 @@ class _TerminalTabState extends State<TerminalTab>
     if (!HardwareKeyboard.instance.isControlPressed) return;
     final lines = terminal.buffer.lines;
     if (cell.y < 0 || cell.y >= lines.length) return;
-    final url = urlAt(lines[cell.y].getText(), cell.x);
+    final url = urlAt(lineText(lines[cell.y]), cell.x);
     if (url != null) widget.openUrl(url);
   }
 
@@ -154,7 +160,7 @@ class _TerminalTabState extends State<TerminalTab>
   void _search(String q) {
     final lines = terminal.buffer.lines;
     _hits = findAll([
-      for (var y = 0; y < lines.length; y++) lines[y].getText(),
+      for (var y = 0; y < lines.length; y++) lineText(lines[y]),
     ], q);
     _hit = _hits.length - 1; // newest output first
     _showHit();
@@ -193,24 +199,39 @@ class _TerminalTabState extends State<TerminalTab>
       children: [
         if (_finding) _findBar(context),
         Expanded(
-          child: TerminalView(
-            terminal,
-            controller: _controller,
-            scrollController: _scroll,
-            focusNode: _termFocus,
-            autofocus: true,
-            shortcuts: kTerminalShortcuts,
-            onKeyEvent: _onKey,
-            onTapUp: _onTapUp,
-            theme: terminalTheme,
-            padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
-            textStyle: TerminalStyle(
-              fontFamily: Tok.mono,
-              fontSize: widget.fontSize,
+          child: Actions(
+            actions: {
+              CopyTerminalTextIntent: CallbackAction<CopyTerminalTextIntent>(
+                onInvoke: (_) => _copy(),
+              ),
+            },
+            child: TerminalView(
+              terminal,
+              controller: _controller,
+              scrollController: _scroll,
+              focusNode: _termFocus,
+              autofocus: true,
+              shortcuts: kTerminalShortcuts,
+              onKeyEvent: _onKey,
+              onTapUp: _onTapUp,
+              theme: terminalTheme,
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 8),
+              textStyle: TerminalStyle(
+                fontFamily: Tok.mono,
+                fontSize: widget.fontSize,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _copy() async {
+    final sel = _controller.selection;
+    if (sel == null) return;
+    await Clipboard.setData(
+      ClipboardData(text: selectionText(terminal.buffer, sel)),
     );
   }
 

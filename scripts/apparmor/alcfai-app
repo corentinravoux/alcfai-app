@@ -1,0 +1,17 @@
+# AppArmor profile for the ALCF AI desktop app.
+#
+# Ubuntu 23.10+ sets kernel.apparmor_restrict_unprivileged_userns=1: an
+# unconfined program that creates a user namespace loses its capabilities
+# inside it. Codex sandboxes every command with bubblewrap, which then fails
+# with "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted".
+# This is the same profile Ubuntu ships for VS Code (/etc/apparmor.d/code):
+# no confinement, only the userns permission, inherited by the agents the
+# app starts.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile alcfai-app @{HOME}/.local/opt/alcfai-app/alcfai_app flags=(unconfined) {
+  userns,
+
+  include if exists <local/alcfai-app>
+}
