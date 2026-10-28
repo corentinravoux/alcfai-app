@@ -26,7 +26,12 @@ void main() {
   AppState make({Set<String> missing = const {}}) {
     started = [];
     return AppState(
-      profiles: defaultProfiles(realHome),
+      profiles: defaultProfiles(
+        realHome,
+        accounts: [
+          ClaudeAccount('claude-pro', 'Claude · Pro', '$realHome/.claude-alt'),
+        ],
+      ),
       which: (exe) => missing.contains(exe) ? null : '/bin/$exe',
       sandbox: sb,
       alcf: AlcfCli(

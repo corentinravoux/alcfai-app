@@ -79,6 +79,7 @@ LaunchSpec buildLaunch(
 const kAgentBinDirs = [
   '.local/bin',
   '.opencode/bin',
+  '.pi/agent/bin',
   '.bun/bin',
   '.npm-global/bin',
   '.cargo/bin',

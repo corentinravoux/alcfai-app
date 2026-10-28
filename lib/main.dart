@@ -27,6 +27,10 @@ Future<void> main() async {
     root: '$realHome/.local/share/alcfai/home',
     realHome: realHome,
   );
+  final store = AppStore('$realHome/.local/share/alcfai/state.json');
+  await store.load();
+  final accounts = store.accounts ?? detectClaudeAccounts(realHome);
+
   final alcfExe = whichOnPath('alcf-ai', env);
   final tokensExe = whichOnPath('alcf-tokens', env);
 
@@ -35,12 +39,15 @@ Future<void> main() async {
       : AlcfCli(
           runner: const IoRunner(),
           sandbox: sandbox,
-          guard: RealConfigGuard(RealConfigGuard.defaultPaths(realHome)),
+          guard: RealConfigGuard(
+            RealConfigGuard.defaultPaths(realHome, [
+              for (final a in accounts) a.dir,
+            ]),
+          ),
           alcfExe: alcfExe,
           tokensExe: tokensExe,
           uvCacheDir: _uvCacheDir(env, realHome),
-          sharedSettingsPath:
-              '$realHome/Software/claude_config/claude/settings.json',
+          sharedSettingsPath: '$realHome/.claude/settings.json',
           parentEnv: env,
         );
 
@@ -48,11 +55,8 @@ Future<void> main() async {
       ? '$realHome/Documents/Python'
       : realHome;
 
-  final store = AppStore('$realHome/.local/share/alcfai/state.json');
-  await store.load();
-
   final state = AppState(
-    profiles: defaultProfiles(realHome),
+    profiles: defaultProfiles(realHome, accounts: accounts),
     which: (exe) => whichOnPath(exe, env),
     sandbox: sandbox,
     alcf: alcf,

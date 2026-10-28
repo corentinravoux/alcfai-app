@@ -50,4 +50,24 @@ void main() {
     expect(t.recentFolders, isEmpty);
     expect(t.fontSize, isNull);
   });
+
+  test('accounts round-trip; ~/ expands; absent stays null', () async {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_store_acc_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final f = File('${tmp.path}/state.json')
+      ..writeAsStringSync(
+        '{"accounts": [{"id": "claude-pro", "label": "Claude · Pro", "dir": "~/.claude-alt"}]}',
+      );
+    final a = AppStore(f.path, home: '/h');
+    await a.load();
+    expect(a.accounts!.single.dir, '/h/.claude-alt');
+    expect(a.accounts!.single.label, 'Claude · Pro');
+    await a.save();
+    final b = AppStore(f.path, home: '/h');
+    await b.load();
+    expect(b.accounts!.single.id, 'claude-pro');
+    final c = AppStore('${tmp.path}/none.json', home: '/h');
+    await c.load();
+    expect(c.accounts, isNull);
+  });
 }

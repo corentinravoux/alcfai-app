@@ -9,13 +9,19 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
-flutter="${FLUTTER:-$HOME/Software/flutter/bin/flutter}"
+flutter="${FLUTTER:-$(command -v flutter || echo "$HOME/Software/flutter/bin/flutter")}"
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 dest="$HOME/.local/opt/alcfai-app"
 apps="$data/applications"
 hicolor="$data/icons/hicolor"
 app_id="dev.ravoux.alcfai_app"
 src="$here/build/linux/x64/release/bundle"
+
+if [[ "${1:-}" != "--no-build" && ! -x "$flutter" ]]; then
+  echo "Flutter not found. Install it (https://docs.flutter.dev/get-started/install/linux)" >&2
+  echo "and put it on PATH, or run: FLUTTER=/path/to/flutter $0" >&2
+  exit 1
+fi
 
 if [[ "${1:-}" != "--no-build" ]]; then
   (cd "$here" && "$flutter" build linux --release)

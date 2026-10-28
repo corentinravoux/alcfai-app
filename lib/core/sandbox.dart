@@ -18,12 +18,14 @@ class Sandbox {
   String get claudeDir => '$home/.claude';
 
   /// Creates the sandbox and links `.globus` so alcf-ai finds the user's
-  /// ALCF tokens. Refuses any root inside the real Claude homes.
+  /// ALCF tokens. Refuses any root inside a real Claude home (`~/.claude*`).
   Future<void> ensure() async {
-    for (final protected in ['.claude', '.claude-alt']) {
-      final dir = p.join(realHome, protected);
-      if (home == dir || p.isWithin(dir, home)) {
-        throw StateError('Sandbox root $home is inside $dir');
+    if (p.isWithin(realHome, home)) {
+      final top = p.split(p.relative(home, from: realHome)).first;
+      if (top.startsWith('.claude')) {
+        throw StateError(
+          'Sandbox root $home is inside ${p.join(realHome, top)}',
+        );
       }
     }
     await Directory(home).create(recursive: true);

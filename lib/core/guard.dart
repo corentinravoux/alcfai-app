@@ -9,10 +9,13 @@ class RealConfigGuard {
 
   final List<String> paths;
 
-  static List<String> defaultPaths(String realHome) => [
-    '$realHome/Software/claude_config/claude/settings.json',
-    '$realHome/.claude/settings.json',
-    '$realHome/.claude-alt/settings.json',
+  /// Settings of every Claude home in [claudeDirs] (default `~/.claude`)
+  /// and the files alcf-ai would write in the real home.
+  static List<String> defaultPaths(
+    String realHome, [
+    List<String>? claudeDirs,
+  ]) => [
+    for (final d in claudeDirs ?? ['$realHome/.claude']) '$d/settings.json',
     '$realHome/.codex/config.toml',
     '$realHome/.pi/agent/models.json',
     '$realHome/.config/opencode/opencode.jsonc',

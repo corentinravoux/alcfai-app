@@ -9,7 +9,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final sb = Sandbox(root: '/h/.local/share/alcfai/home', realHome: '/h');
-  final profiles = {for (final p in defaultProfiles('/h')) p.id: p};
+  const accounts = [
+    ClaudeAccount('claude-pro', 'Claude · Pro', '/h/.claude-alt'),
+    ClaudeAccount('claude-team', 'Claude · Team', '/h/.claude'),
+  ];
+  final profiles = {
+    for (final p in defaultProfiles('/h', accounts: accounts)) p.id: p,
+  };
   const parentEnv = {
     'CLAUDE_CONFIG_DIR': '/x/.claude-alt',
     'ANTHROPIC_API_KEY': 'k',
@@ -29,14 +35,20 @@ void main() {
   );
 
   test('defaultProfiles ids and labels', () {
-    expect(defaultProfiles('/h').map((p) => '${p.id}|${p.label}'), [
-      'claude-alcf|Claude · ALCF',
-      'pi-alcf|Pi · ALCF',
-      'codex-alcf|Codex · ALCF',
-      'opencode-alcf|OpenCode · ALCF',
-      'claude-pro|Claude · Pro',
-      'claude-team|Claude · Team',
-    ]);
+    expect(
+      defaultProfiles(
+        '/h',
+        accounts: accounts,
+      ).map((p) => '${p.id}|${p.label}'),
+      [
+        'claude-alcf|Claude · ALCF',
+        'pi-alcf|Pi · ALCF',
+        'codex-alcf|Codex · ALCF',
+        'opencode-alcf|OpenCode · ALCF',
+        'claude-pro|Claude · Pro',
+        'claude-team|Claude · Team',
+      ],
+    );
     expect(profiles['claude-pro']!.nativeConfigDir, '/h/.claude-alt');
     expect(profiles['claude-team']!.nativeConfigDir, '/h/.claude');
   });
@@ -207,5 +219,18 @@ void main() {
     for (final k in [AgentKind.claude, AgentKind.pi, AgentKind.opencode]) {
       expect(alcfCompatArgs(k), isEmpty, reason: k.name);
     }
+  });
+
+  test('detectClaudeAccounts: ~/.claude plus logged-in ~/.claude-* homes', () {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_acc_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final h = tmp.path;
+    File('$h/.claude-work/.credentials.json').createSync(recursive: true);
+    File('$h/.claude-mem/settings.json').createSync(recursive: true);
+    File('$h/.claude.json').createSync();
+    expect(detectClaudeAccounts(h).map((a) => '${a.id}|${a.label}|${a.dir}'), [
+      'claude-default|Claude · your account|$h/.claude',
+      'claude-work|Claude · work|$h/.claude-work',
+    ]);
   });
 }

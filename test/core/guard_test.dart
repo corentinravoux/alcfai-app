@@ -8,10 +8,9 @@ void main() {
   setUp(() => tmp = Directory.systemTemp.createTempSync('alcfai_guard_'));
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  test('defaultPaths lists the six guarded files', () {
+  test('defaultPaths lists every account and agent config', () {
     const h = '/h';
-    expect(RealConfigGuard.defaultPaths(h), [
-      '$h/Software/claude_config/claude/settings.json',
+    expect(RealConfigGuard.defaultPaths(h, ['$h/.claude', '$h/.claude-alt']), [
       '$h/.claude/settings.json',
       '$h/.claude-alt/settings.json',
       '$h/.codex/config.toml',

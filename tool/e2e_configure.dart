@@ -14,8 +14,10 @@ import 'package:alcfai_app/core/sandbox.dart';
 Future<void> main(List<String> agents) async {
   final env = Platform.environment;
   final home = env['HOME']!;
-  final sandbox =
-      Sandbox(root: '$home/.local/share/alcfai/home', realHome: home);
+  final sandbox = Sandbox(
+    root: '$home/.local/share/alcfai/home',
+    realHome: home,
+  );
   final cli = AlcfCli(
     runner: const IoRunner(),
     sandbox: sandbox,
@@ -23,7 +25,7 @@ Future<void> main(List<String> agents) async {
     alcfExe: whichOnPath('alcf-ai', env)!,
     tokensExe: whichOnPath('alcf-tokens', env)!,
     uvCacheDir: '$home/.cache/uv',
-    sharedSettingsPath: '$home/Software/claude_config/claude/settings.json',
+    sharedSettingsPath: '$home/.claude/settings.json',
     parentEnv: env,
   );
   for (final name in agents) {

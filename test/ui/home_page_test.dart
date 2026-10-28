@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:alcfai_app/ui/sidebar.dart';
 import 'package:alcfai_app/app/app_state.dart';
 import 'package:alcfai_app/core/alcf_cli.dart';
 import 'package:alcfai_app/core/app_store.dart';
@@ -165,12 +166,7 @@ void main() {
     tester,
   ) async {
     await pump(tester, makeState());
-    expect(
-      find.text(
-        'Run ~/Software/claude_config/install.sh --alcf to share CLAUDE.md, commands and skills',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text(kSharedConfigHint), findsOneWidget);
     expect(button(tester, 'open-claude-alcf').onPressed, isNotNull);
   });
 

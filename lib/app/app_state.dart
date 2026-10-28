@@ -289,8 +289,7 @@ class AppState extends ChangeNotifier {
   /// Plain sentence saying where a profile's requests go.
   String describeRoute(Profile p) {
     if (!p.isAlcf) {
-      final account = p.id == 'claude-pro' ? 'Pro' : 'Team';
-      return 'Anthropic, $account account (${_tilde(p.nativeConfigDir!)})';
+      return 'Anthropic, account in ${_tilde(p.nativeConfigDir!)}';
     }
     final c = choiceFor(p);
     if (c != null) return 'ALCF ${c.cluster}, model ${c.model}';

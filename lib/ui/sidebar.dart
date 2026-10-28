@@ -4,8 +4,10 @@ import '../app/app_state.dart';
 import '../core/agents.dart';
 import 'theme.dart';
 
+/// Shown while the ALCF Claude has no CLAUDE.md of its own (README:
+/// "Share your Claude instructions").
 const kSharedConfigHint =
-    'Run ~/Software/claude_config/install.sh --alcf to share CLAUDE.md, commands and skills';
+    'To reuse your CLAUDE.md, commands and skills, link them in: see README';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({
@@ -122,7 +124,9 @@ class _ProfileTile extends StatelessWidget {
   String get _detail {
     final p = status.profile;
     if (!status.installed) return 'Not installed';
-    if (!p.isAlcf) return p.id == 'claude-pro' ? 'Pro account' : 'Team account';
+    if (!p.isAlcf) {
+      return state.describeRoute(p).replaceFirst('Anthropic, account in ', '');
+    }
     if (!state.alcfAvailable) return 'Needs alcf-ai';
     if (!status.configured) return 'Not set up for ALCF yet';
     final route = state.describeRoute(p);
