@@ -231,4 +231,95 @@ void main() {
     await tester.pump(const Duration(hours: 3));
     expect(checks, 2);
   });
+
+  group('split view', () {
+    Future<AppState> three() async {
+      final s = make();
+      await s.refresh();
+      for (final w in ['/a', '/b', '/c']) {
+        s.open(p(s, 'pi-alcf'), w);
+      }
+      return s;
+    }
+
+    List<String?> shown(AppState s) => [
+      for (final t in s.paneTabs) t?.spec.cwd,
+    ];
+
+    test('split shows a hidden tab on the right and focuses it', () async {
+      final s = await three();
+      expect(shown(s), ['/c']);
+      s.toggleSplit();
+      expect(s.isSplit, isTrue);
+      expect(shown(s), ['/c', '/a']);
+      expect(s.focus, 1);
+      s.toggleSplit();
+      expect(shown(s), ['/a'], reason: 'keeps the focused pane');
+      expect(s.focus, 0);
+    });
+
+    test(
+      'split with one tab leaves the new pane empty; open fills it',
+      () async {
+        final s = make();
+        await s.refresh();
+        s.open(p(s, 'pi-alcf'), '/a');
+        s.toggleSplit();
+        expect(shown(s), ['/a', null]);
+        s.open(p(s, 'pi-alcf'), '/b');
+        expect(shown(s), ['/a', '/b']);
+      },
+    );
+
+    test('select focuses the pane already showing a tab, else uses the focused one', () async {
+      final s = await three();
+      s.toggleSplit(); // ['/c', '/a'], focus 1
+      s.select(2); // '/c' is on the left
+      expect(s.focus, 0);
+      expect(shown(s), ['/c', '/a']);
+      s.select(1); // '/b' hidden: goes to the focused (left) pane
+      expect(shown(s), ['/b', '/a']);
+      expect(s.active, 1);
+    });
+
+    test(
+      'showInPane splits when dropped on the right; a shown tab swaps',
+      () async {
+        final s = await three();
+        s.showInPane(1, 0); // drop '/a' on the right half
+        expect(shown(s), ['/c', '/a']);
+        expect(s.focus, 1);
+        s.showInPane(0, 0); // drop '/a' on the left: swap
+        expect(shown(s), ['/a', '/c']);
+        expect(s.focus, 0);
+      },
+    );
+
+    test(
+      'closing a tab shows another hidden one, or collapses the empty pane',
+      () async {
+        final s = await three();
+        s.toggleSplit(); // ['/c', '/a']
+        s.close(0); // '/a' closes; '/b' is hidden and takes its place
+        expect(shown(s), ['/c', '/b']);
+        s.close(0); // '/b' closes; nothing hidden left
+        expect(s.isSplit, isFalse);
+        expect(shown(s), ['/c']);
+        s.close(0);
+        expect(shown(s), [null]);
+      },
+    );
+
+    test('closePane keeps the other pane; restart stays in its pane', () async {
+      final s = await three();
+      s.toggleSplit(); // ['/c', '/a']
+      s.markExited(s.tabs[0], 0);
+      s.restart(0);
+      expect(shown(s), ['/c', '/a']);
+      expect(s.focus, 1);
+      s.closePane(1);
+      expect(shown(s), ['/c']);
+      expect(s.tabs.length, 3, reason: 'tabs stay open');
+    });
+  });
 }

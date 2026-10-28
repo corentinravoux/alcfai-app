@@ -102,6 +102,15 @@ and in `~/.local/bin`, `~/.opencode/bin`, `~/.pi/agent/bin`, `~/.bun/bin`,
 
 Plain Ctrl+A, Ctrl+C and Ctrl+V go to the agent, as in any terminal.
 
+**Side by side.** Click the split button at the right end of the tab bar,
+or drag a tab onto the right half of the window. Each half shows one tab
+with its own "Runs on" bar. Click a half to make it the active one: tabs
+you pick and new sessions go there (its bar has a blue top line, and its
+tab an arrow pointing to its side). Drag a tab onto a half to show it
+there; dropping a tab already shown in the other half swaps them. Drag the
+divider to resize, double-click it to even the halves. The × on a half's
+bar closes the half; its session keeps running in its tab.
+
 - Each agent starts on the model you picked in Configure.
 - The app asks before closing a running session, and offers **Restart** on
   one that ended.

@@ -286,4 +286,88 @@ void main() {
     await pump(tester, makeState(store: store));
     expect(find.text('minerva, model gpt-oss-120b'), findsOneWidget);
   });
+
+  group('split view', () {
+    Future<AppState> twoTabs(WidgetTester tester) async {
+      final state = await pump(tester, makeState());
+      state.open(state.profiles.first, tmp.path);
+      state.open(state.profiles[1], tmp.path);
+      await tester.pump();
+      return state;
+    }
+
+    testWidgets('split button shows two sessions; closing a pane keeps both', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester);
+      expect(find.byType(TerminalTab), findsOneWidget);
+      final ptys = started.length;
+      await tester.tap(find.byKey(const ValueKey('split-toggle')));
+      await tester.pump();
+      expect(state.isSplit, isTrue);
+      expect(find.byType(TerminalTab), findsNWidgets(2));
+      expect(started.length, ptys, reason: 'no session restarted');
+      await tester.tap(find.byKey(const ValueKey('close-pane-1')));
+      await tester.pump();
+      expect(state.isSplit, isFalse);
+      expect(state.tabs.length, 2);
+      expect(find.byType(TerminalTab), findsOneWidget);
+    });
+
+    testWidgets('dragging a tab to the right half splits the view', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester);
+      final ptys = started.length;
+      // Tab 0 is hidden; drop it on the right of the terminal area.
+      final from = tester.getCenter(find.byKey(const ValueKey('tab-chip-0')));
+      final g = await tester.startGesture(from);
+      await g.moveBy(const Offset(30, 30));
+      await tester.pump();
+      await g.moveTo(const Offset(1100, 450));
+      await tester.pump();
+      expect(find.text('Split right'), findsOneWidget);
+      await g.up();
+      await tester.pump();
+      expect(state.isSplit, isTrue);
+      expect(state.paneTabs.map((t) => t?.id), [
+        state.tabs[1].id,
+        state.tabs[0].id,
+      ]);
+      expect(state.focus, 1);
+      expect(started.length, ptys, reason: 'no session restarted');
+    });
+
+    testWidgets('clicking a pane focuses it; tabs then open there', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester);
+      state.toggleSplit(); // [tab1 | tab0], focus right
+      await tester.pump();
+      await tester.tapAt(const Offset(500, 450)); // left pane
+      await tester.pump();
+      expect(state.focus, 0);
+      state.open(state.profiles.first, tmp.path);
+      await tester.pump();
+      expect(state.paneTabs.first!.id, state.tabs.last.id);
+      await tester.pump(const Duration(seconds: 1)); // xterm's tap timer
+    });
+
+    testWidgets('split with one tab shows an empty pane that can close', (
+      tester,
+    ) async {
+      final state = await pump(tester, makeState());
+      state.open(state.profiles.first, tmp.path);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('split-toggle')));
+      await tester.pump();
+      expect(
+        find.text('Open an agent from the left, or drag a tab here.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('close-empty-pane')));
+      await tester.pump();
+      expect(state.isSplit, isFalse);
+    });
+  });
 }

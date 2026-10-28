@@ -71,7 +71,95 @@ class AppState extends ChangeNotifier {
 
   List<ProfileStatus> statuses = [];
   final List<OpenTab> tabs = [];
-  int active = 0;
+
+  /// The view shows one pane, or two side by side. Each pane shows one
+  /// tab (by id), or nothing (an empty pane waiting for a session).
+  /// Every tab keeps running whether shown or not.
+  List<int?> _panes = [null];
+
+  /// The pane that receives tab clicks and new sessions.
+  int focus = 0;
+
+  bool get isSplit => _panes.length == 2;
+
+  List<OpenTab?> get paneTabs => [for (final id in _panes) _byId(id)];
+
+  /// Index of the tab in the focused pane (0 when it is empty).
+  int get active {
+    final i = tabs.indexWhere((t) => t.id == _panes[focus]);
+    return i < 0 ? 0 : i;
+  }
+
+  /// The pane showing tab [i], or null when it is hidden.
+  int? paneOf(int i) {
+    final p = _panes.indexOf(tabs[i].id);
+    return p < 0 ? null : p;
+  }
+
+  OpenTab? _byId(int? id) =>
+      id == null ? null : tabs.where((t) => t.id == id).firstOrNull;
+
+  /// The first tab no pane shows, preferring index [from] then earlier ones.
+  int? _hiddenFrom(int from) {
+    final order = [
+      for (var i = from; i < tabs.length; i++) i,
+      for (var i = from - 1; i >= 0; i--) i,
+    ];
+    for (final i in order) {
+      if (i >= 0 && !_panes.contains(tabs[i].id)) return tabs[i].id;
+    }
+    return null;
+  }
+
+  /// Splits the view (the new right pane shows a hidden tab, or nothing,
+  /// and takes the focus), or goes back to one pane, keeping the focused one.
+  void toggleSplit() {
+    if (isSplit) {
+      closePane(1 - focus);
+      return;
+    }
+    _panes = [_panes[0], _hiddenFrom(0)];
+    focus = 1;
+    notifyListeners();
+  }
+
+  /// Removes pane [pane]; its tab keeps running, hidden.
+  void closePane(int pane) {
+    if (!isSplit) return;
+    _panes = [_panes[1 - pane]];
+    focus = 0;
+    notifyListeners();
+  }
+
+  void focusPane(int pane) {
+    if (pane == focus || pane >= _panes.length) return;
+    focus = pane;
+    notifyListeners();
+  }
+
+  /// Shows tab [i] in pane [pane] (dropping a tab there). Pane 1 of a
+  /// single view splits it. A tab already shown in the other pane swaps
+  /// places with this pane's tab.
+  void showInPane(int pane, int i) {
+    final id = tabs[i].id;
+    if (pane >= _panes.length) _panes = [_panes[0], null];
+    final other = _panes.indexOf(id);
+    if (other >= 0 && other != pane) _panes[other] = _panes[pane];
+    _panes[pane] = id;
+    focus = pane;
+    _dropEmptyPane();
+    notifyListeners();
+  }
+
+  /// A split view never keeps an empty pane once a tab has gone.
+  void _dropEmptyPane() {
+    if (!isSplit || !_panes.contains(null)) return;
+    final keep = _panes.indexWhere((id) => id != null);
+    if (keep < 0) return;
+    _panes = [_panes[keep]];
+    focus = 0;
+  }
+
   bool alcfLoggedIn = true;
   int _nextId = 0;
 
@@ -202,7 +290,13 @@ class AppState extends ChangeNotifier {
     } else {
       tabs[i] = _makeTab(p, old.spec.cwd, old.title);
     }
-    active = i;
+    final pane = _panes.indexOf(old.id);
+    if (pane >= 0) {
+      _panes[pane] = tabs[i].id;
+      focus = pane;
+    } else {
+      _panes[focus] = tabs[i].id;
+    }
     _save();
     notifyListeners();
   }
@@ -249,19 +343,34 @@ class AppState extends ChangeNotifier {
 
   void _add(OpenTab t) {
     tabs.add(t);
-    active = tabs.length - 1;
+    _panes[focus] = t.id;
     _save();
     notifyListeners();
   }
 
+  /// Shows tab [i]: focuses the pane already showing it, else puts it in
+  /// the focused pane.
   void select(int i) {
-    active = i;
+    final pane = _panes.indexOf(tabs[i].id);
+    if (pane >= 0) {
+      focus = pane;
+    } else {
+      _panes[focus] = tabs[i].id;
+    }
     notifyListeners();
   }
 
   void close(int i) {
-    tabs.removeAt(i);
-    if (active >= tabs.length) active = tabs.isEmpty ? 0 : tabs.length - 1;
+    final id = tabs.removeAt(i).id;
+    for (var p = 0; p < _panes.length; p++) {
+      if (_panes[p] == id) _panes[p] = _hiddenFrom(i);
+    }
+    if (tabs.isEmpty) {
+      _panes = [null];
+      focus = 0;
+    } else if (isSplit && _panes.contains(null)) {
+      _dropEmptyPane();
+    }
     _save();
     notifyListeners();
   }
