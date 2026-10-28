@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_state.dart';
+import '../app/layout.dart';
 import '../core/alcf_cli.dart';
 import '../core/profiles.dart';
 import 'new_session_dialog.dart';
@@ -33,14 +34,20 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   AppState get state => widget.state;
 
-  /// Share of the width given to the left pane.
-  double _ratio = 0.5;
-
-  /// True while a tab is being dragged: the panes then show drop zones.
+  /// True while a tab is being dragged: the panes then take drops.
   bool _dragging = false;
 
+  /// Pane and zone under a dragged tab, for the drop preview.
+  (int, DropZone)? _hover;
+
+  final _stackKey = GlobalKey();
+
   void _setDragging(bool v) {
-    if (v != _dragging) setState(() => _dragging = v);
+    if (v == _dragging) return;
+    setState(() {
+      _dragging = v;
+      if (!v) _hover = null;
+    });
   }
 
   Future<void> _open(BuildContext context, ProfileStatus s) async {
@@ -104,85 +111,109 @@ class _HomePageState extends State<HomePage> {
   static const _divider = 7.0;
   static const _routeBar = 30.0;
 
-  /// The panes side by side. Every terminal lives in one Stack, placed over
-  /// the pane that shows it (or hidden behind the first one), so moving a
-  /// tab between panes never restarts its process.
+  /// The panes, laid out from the split tree. Every terminal lives in one
+  /// Stack, placed over the pane that shows it (or hidden behind the first
+  /// one), so moving a tab between panes never restarts its process.
   Widget _panesView() {
     return LayoutBuilder(
       builder: (context, box) {
-        final w = box.maxWidth, h = box.maxHeight;
-        final panes = <Rect>[
-          if (!state.isSplit)
-            Rect.fromLTWH(0, 0, w, h)
-          else ...[
-            Rect.fromLTWH(0, 0, (w - _divider) * _ratio, h),
-            Rect.fromLTRB((w - _divider) * _ratio + _divider, 0, w, h),
-          ],
-        ];
+        final geo = measure(
+          state.layout,
+          Rect.fromLTWH(0, 0, box.maxWidth, box.maxHeight),
+          divider: _divider,
+        );
+        final panes = state.panes;
+        final first = geo.panes[panes.first.id]!;
         Rect body(Rect r) =>
             Rect.fromLTRB(r.left, r.top + _routeBar, r.right, r.bottom);
-        final shown = state.paneTabs;
         return Stack(
+          key: _stackKey,
           children: [
             for (var i = 0; i < state.tabs.length; i++)
-              _terminal(i, panes, body),
+              _terminal(i, geo, body(first), body),
             for (var p = 0; p < panes.length; p++)
-              if (shown[p] == null)
+              _paneChrome(p, panes[p], geo.panes[panes[p].id]!),
+            for (final d in geo.dividers)
+              Positioned.fromRect(
+                rect: d.rect,
+                child: _Divider(
+                  sideBySide: d.split.sideBySide,
+                  onDrag: (delta) =>
+                      state.setRatio(d.split, d.split.ratio + delta / d.extent),
+                  onReset: () => state.setRatio(d.split, 0.5),
+                ),
+              ),
+            if (_dragging)
+              for (var p = 0; p < panes.length; p++)
+                _dropTarget(p, panes[p].id, geo.panes[panes[p].id]!),
+            if (_hover case (final id, final zone)?)
+              if (geo.panes[id] case final rect?)
                 Positioned.fromRect(
-                  key: ValueKey('empty-pane-$p'),
-                  rect: panes[p],
-                  child: _EmptyPane(
-                    focused: state.focus == p,
-                    onTap: () => state.focusPane(p),
-                    onClose: () => state.closePane(p),
-                  ),
-                )
-              else
-                Positioned(
-                  key: ValueKey('route-$p'),
-                  left: panes[p].left,
-                  top: 0,
-                  width: panes[p].width,
-                  height: _routeBar,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTapDown: (_) => state.focusPane(p),
-                    child: _RouteBar(
-                      state: state,
-                      index: state.tabs.indexOf(shown[p]!),
-                      split: state.isSplit,
-                      focused: state.focus == p,
-                      onClosePane: () => state.closePane(p),
+                  rect: previewRect(rect, zone),
+                  child: IgnorePointer(
+                    child: _DropHint(
+                      label: zone == DropZone.center
+                          ? 'Show here'
+                          : 'Split here',
                     ),
                   ),
                 ),
-            if (state.isSplit)
-              Positioned(
-                left: panes[0].right,
-                top: 0,
-                width: _divider,
-                height: h,
-                child: _Divider(
-                  onDrag: (dx) => setState(
-                    () =>
-                        _ratio = (_ratio + dx / (w - _divider)).clamp(0.2, 0.8),
-                  ),
-                  onReset: () => setState(() => _ratio = 0.5),
-                ),
-              ),
-            if (_dragging) ..._dropZones(panes),
           ],
         );
       },
     );
   }
 
-  Widget _terminal(int i, List<Rect> panes, Rect Function(Rect) body) {
+  /// The route bar of a pane showing a tab, or the placeholder of an empty
+  /// one.
+  Widget _paneChrome(int order, PaneNode pane, Rect rect) {
+    final tab = state.paneTabs[order];
+    final focused = state.focus == pane.id;
+    if (tab == null) {
+      return Positioned.fromRect(
+        key: ValueKey('pane-${pane.id}'),
+        rect: rect,
+        child: _EmptyPane(
+          order: order,
+          focused: focused && state.isSplit,
+          onTap: () => state.focusPane(pane.id),
+          onClose: state.isSplit ? () => state.closePane(pane.id) : null,
+        ),
+      );
+    }
+    return Positioned(
+      key: ValueKey('pane-${pane.id}'),
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: _routeBar,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTapDown: (_) => state.focusPane(pane.id),
+        child: _RouteBar(
+          state: state,
+          index: state.tabs.indexOf(tab),
+          order: order,
+          split: state.isSplit,
+          focused: focused,
+          onSplit: (side) => state.splitPane(pane.id, side),
+          onClosePane: () => state.closePane(pane.id),
+        ),
+      ),
+    );
+  }
+
+  Widget _terminal(
+    int i,
+    LayoutGeometry geo,
+    Rect hiddenRect,
+    Rect Function(Rect) body,
+  ) {
     final t = state.tabs[i];
     final pane = state.paneOf(i);
     return Positioned.fromRect(
       key: ValueKey('term-${t.id}'),
-      rect: body(panes[pane ?? 0]),
+      rect: pane == null ? hiddenRect : body(geo.panes[pane]!),
       child: Offstage(
         offstage: pane == null,
         child: Listener(
@@ -203,41 +234,44 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Where a dragged tab can land: either pane of a split view, or the
-  /// left / right half of a single one (the right half splits it).
-  List<Widget> _dropZones(List<Rect> panes) {
-    final zones = <(Rect, int, String)>[
-      if (!state.isSplit) ...[
-        (
-          Rect.fromLTRB(panes[0].left, 0, panes[0].center.dx, panes[0].bottom),
-          0,
-          'Show here',
-        ),
-        (
-          Rect.fromLTRB(panes[0].center.dx, 0, panes[0].right, panes[0].bottom),
-          1,
-          'Split right',
-        ),
-      ] else
-        for (var p = 0; p < panes.length; p++) (panes[p], p, 'Show here'),
-    ];
-    return [
-      for (final (rect, pane, label) in zones)
-        Positioned.fromRect(
-          key: ValueKey('drop-$pane'),
-          rect: rect,
-          child: DragTarget<int>(
-            onAcceptWithDetails: (d) {
-              final i = state.tabs.indexWhere((t) => t.id == d.data);
-              if (i >= 0) state.showInPane(pane, i);
-              _setDragging(false);
-            },
-            builder: (context, candidate, _) => candidate.isEmpty
-                ? const SizedBox.expand()
-                : _DropHint(label: label),
-          ),
-        ),
-    ];
+  /// A dragged tab over a pane: the middle shows it there, a band along an
+  /// edge splits the pane on that side (see [zoneAt]).
+  Widget _dropTarget(int order, int paneId, Rect rect) {
+    DropZone zone(Offset global) {
+      final box = _stackKey.currentContext!.findRenderObject() as RenderBox;
+      final local = box.globalToLocal(global);
+      return zoneAt(
+        (local.dx - rect.left) / rect.width,
+        (local.dy - rect.top) / rect.height,
+      );
+    }
+
+    return Positioned.fromRect(
+      key: ValueKey('drop-$order'),
+      rect: rect,
+      child: DragTarget<int>(
+        onMove: (d) {
+          final z = zone(d.offset);
+          if (_hover != (paneId, z)) setState(() => _hover = (paneId, z));
+        },
+        onLeave: (_) {
+          if (_hover?.$1 == paneId) setState(() => _hover = null);
+        },
+        onAcceptWithDetails: (d) {
+          final i = state.tabs.indexWhere((t) => t.id == d.data);
+          if (i >= 0) {
+            final side = sideOf(zone(d.offset));
+            if (side == null) {
+              state.showInPane(paneId, i);
+            } else {
+              state.splitPane(paneId, side, tabIndex: i);
+            }
+          }
+          _setDragging(false);
+        },
+        builder: (context, _, _) => const SizedBox.expand(),
+      ),
+    );
   }
 }
 
@@ -317,26 +351,6 @@ class _TabStrip extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: Tok.line)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: IconButton(
-              key: const ValueKey('split-toggle'),
-              tooltip: state.isSplit
-                  ? 'Back to one pane'
-                  : 'Split side by side (or drag a tab to the right)',
-              onPressed: state.toggleSplit,
-              icon: Icon(
-                state.isSplit
-                    ? Icons.crop_square_rounded
-                    : Icons.vertical_split_outlined,
-                size: 18,
-                color: state.isSplit ? Tok.accent : Tok.muted,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -391,8 +405,8 @@ class _TabChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = state.tabs[index];
     final pane = state.paneOf(index);
-    // Shown in the focused pane: accent. Shown in the other pane: a quiet
-    // underline, so both visible tabs read as "on screen".
+    // Shown in the focused pane: accent. Shown in another pane: a quiet
+    // underline, so every visible tab reads as "on screen".
     final active = pane != null && pane == state.focus;
     final visible = pane != null;
     final exited = t.exitCode != null;
@@ -416,14 +430,6 @@ class _TabChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (state.isSplit && visible) ...[
-              Icon(
-                pane == 0 ? Icons.west_rounded : Icons.east_rounded,
-                size: 12,
-                color: active ? Tok.accent : Tok.faint,
-              ),
-              const SizedBox(width: 6),
-            ],
             Text(
               label,
               style: TextStyle(
@@ -446,6 +452,8 @@ class _TabChip extends StatelessWidget {
     return Draggable<int>(
       key: ValueKey('tab-chip-$index'),
       data: t.id,
+      // Drop zones are found from the pointer, so anchor the feedback there.
+      dragAnchorStrategy: pointerDragAnchorStrategy,
       onDragStarted: () => onDragging(true),
       onDragEnd: (_) => onDragging(false),
       onDraggableCanceled: (_, _) => onDragging(false),
@@ -474,16 +482,22 @@ class _RouteBar extends StatelessWidget {
   const _RouteBar({
     required this.state,
     required this.index,
+    this.order = 0,
     this.split = false,
     this.focused = true,
+    this.onSplit,
     this.onClosePane,
   });
   final AppState state;
   final int index;
 
+  /// Position of the pane, for widget keys.
+  final int order;
+
   /// In a split view the focused pane's bar carries an accent top line.
   final bool split;
   final bool focused;
+  final ValueChanged<Side>? onSplit;
   final VoidCallback? onClosePane;
 
   @override
@@ -493,7 +507,7 @@ class _RouteBar extends StatelessWidget {
     final lit = !split || focused;
     return Container(
       height: 30,
-      padding: EdgeInsets.only(left: 14, right: split ? 2 : 14),
+      padding: const EdgeInsets.only(left: 14, right: 2),
       decoration: BoxDecoration(
         color: lit ? Tok.bg : Tok.rail,
         border: Border(
@@ -548,13 +562,25 @@ class _RouteBar extends StatelessWidget {
               child: const Text('Restart'),
             ),
           ],
+          const SizedBox(width: 6),
+          _BarButton(
+            key: ValueKey('split-right-$order'),
+            tooltip: 'Split right (or drag a tab to a pane edge)',
+            icon: Icons.vertical_split_outlined,
+            onPressed: () => onSplit?.call(Side.right),
+          ),
+          _BarButton(
+            key: ValueKey('split-down-$order'),
+            tooltip: 'Split down',
+            icon: Icons.horizontal_split_outlined,
+            onPressed: () => onSplit?.call(Side.bottom),
+          ),
           if (split)
-            IconButton(
-              key: ValueKey('close-pane-${state.paneOf(index)}'),
+            _BarButton(
+              key: ValueKey('close-pane-$order'),
               tooltip: 'Close this pane (the session keeps running)',
-              visualDensity: VisualDensity.compact,
+              icon: Icons.close_rounded,
               onPressed: onClosePane,
-              icon: const Icon(Icons.close_rounded, size: 14, color: Tok.faint),
             ),
         ],
       ),
@@ -610,13 +636,15 @@ class _EmptyState extends StatelessWidget {
 /// A pane with no session yet (right after splitting with one tab).
 class _EmptyPane extends StatelessWidget {
   const _EmptyPane({
+    required this.order,
     required this.focused,
     required this.onTap,
     required this.onClose,
   });
+  final int order;
   final bool focused;
   final VoidCallback onTap;
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -660,21 +688,17 @@ class _EmptyPane extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              top: 2,
-              right: 2,
-              child: IconButton(
-                key: const ValueKey('close-empty-pane'),
-                tooltip: 'Close this pane',
-                visualDensity: VisualDensity.compact,
-                onPressed: onClose,
-                icon: const Icon(
-                  Icons.close_rounded,
-                  size: 14,
-                  color: Tok.faint,
+            if (onClose != null)
+              Positioned(
+                top: 4,
+                right: 2,
+                child: _BarButton(
+                  key: ValueKey('close-pane-$order'),
+                  tooltip: 'Close this pane',
+                  icon: Icons.close_rounded,
+                  onPressed: onClose,
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -684,7 +708,14 @@ class _EmptyPane extends StatelessWidget {
 
 /// The bar between two panes: drag to resize, double-click to even them.
 class _Divider extends StatefulWidget {
-  const _Divider({required this.onDrag, required this.onReset});
+  const _Divider({
+    required this.sideBySide,
+    required this.onDrag,
+    required this.onReset,
+  });
+
+  /// True for a vertical bar between panes side by side.
+  final bool sideBySide;
   final ValueChanged<double> onDrag;
   final VoidCallback onReset;
 
@@ -697,20 +728,25 @@ class _DividerState extends State<_Divider> {
 
   @override
   Widget build(BuildContext context) {
+    final v = widget.sideBySide;
+    final line = _hover ? 2.0 : 1.0;
     return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
+      cursor: v
+          ? SystemMouseCursors.resizeColumn
+          : SystemMouseCursors.resizeRow,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        key: const ValueKey('pane-divider'),
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: (d) => widget.onDrag(d.delta.dx),
+        onHorizontalDragUpdate: v ? (d) => widget.onDrag(d.delta.dx) : null,
+        onVerticalDragUpdate: v ? null : (d) => widget.onDrag(d.delta.dy),
         onDoubleTap: widget.onReset,
         child: Container(
           color: Tok.rail,
           alignment: Alignment.center,
           child: Container(
-            width: _hover ? 2 : 1,
+            width: v ? line : null,
+            height: v ? null : line,
             color: _hover ? Tok.accent : Tok.line,
           ),
         ),
@@ -751,4 +787,27 @@ class _DropHint extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A small icon button for pane bars.
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+    onPressed: onPressed,
+    icon: Icon(icon, size: 15, color: Tok.faint),
+  );
 }

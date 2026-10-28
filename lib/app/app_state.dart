@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import 'layout.dart';
+
 import '../core/agents.dart';
 import '../core/alcf_cli.dart';
 import '../core/app_store.dart';
@@ -72,95 +74,130 @@ class AppState extends ChangeNotifier {
   List<ProfileStatus> statuses = [];
   final List<OpenTab> tabs = [];
 
-  /// The view shows one pane, or two side by side. Each pane shows one
-  /// tab (by id), or nothing (an empty pane waiting for a session).
-  /// Every tab keeps running whether shown or not.
-  List<int?> _panes = [null];
+  /// The terminal area: a tree of panes (see layout.dart). Each pane shows
+  /// one tab, or nothing. Every tab keeps running whether shown or not.
+  LayoutNode layout = PaneNode(0);
+  int _nextPaneId = 1;
 
-  /// The pane that receives tab clicks and new sessions.
+  /// Id of the pane that receives tab clicks and new sessions.
   int focus = 0;
 
-  bool get isSplit => _panes.length == 2;
+  List<PaneNode> get panes => panesOf(layout);
 
-  List<OpenTab?> get paneTabs => [for (final id in _panes) _byId(id)];
+  bool get isSplit => layout is SplitNode;
+
+  PaneNode get focusedPane =>
+      panes.firstWhere((p) => p.id == focus, orElse: () => panes.first);
+
+  /// Position of the focused pane in [panes].
+  int get focusIndex => panes.indexOf(focusedPane);
+
+  /// The tab each pane shows, in [panes] order.
+  List<OpenTab?> get paneTabs => [for (final p in panes) _byId(p.tab)];
 
   /// Index of the tab in the focused pane (0 when it is empty).
   int get active {
-    final i = tabs.indexWhere((t) => t.id == _panes[focus]);
+    final i = tabs.indexWhere((t) => t.id == focusedPane.tab);
     return i < 0 ? 0 : i;
   }
 
-  /// The pane showing tab [i], or null when it is hidden.
-  int? paneOf(int i) {
-    final p = _panes.indexOf(tabs[i].id);
-    return p < 0 ? null : p;
-  }
+  /// Id of the pane showing tab [i], or null when it is hidden.
+  int? paneOf(int i) => panes.where((p) => p.tab == tabs[i].id).firstOrNull?.id;
+
+  PaneNode? _pane(int id) => panes.where((p) => p.id == id).firstOrNull;
 
   OpenTab? _byId(int? id) =>
       id == null ? null : tabs.where((t) => t.id == id).firstOrNull;
 
   /// The first tab no pane shows, preferring index [from] then earlier ones.
   int? _hiddenFrom(int from) {
+    final shown = {for (final p in panes) p.tab};
     final order = [
       for (var i = from; i < tabs.length; i++) i,
       for (var i = from - 1; i >= 0; i--) i,
     ];
     for (final i in order) {
-      if (i >= 0 && !_panes.contains(tabs[i].id)) return tabs[i].id;
+      if (i >= 0 && !shown.contains(tabs[i].id)) return tabs[i].id;
     }
     return null;
   }
 
-  /// Splits the view (the new right pane shows a hidden tab, or nothing,
-  /// and takes the focus), or goes back to one pane, keeping the focused one.
-  void toggleSplit() {
-    if (isSplit) {
-      closePane(1 - focus);
-      return;
+  /// Gives every empty pane a hidden tab while there are some.
+  void _fillEmpty(int from) {
+    for (final p in panes) {
+      p.tab ??= _hiddenFrom(from);
     }
-    _panes = [_panes[0], _hiddenFrom(0)];
-    focus = 1;
+  }
+
+  /// Splits pane [paneId] on [side]. The new pane shows tab [tabIndex]
+  /// (moved there from wherever it was shown), or else a hidden tab, or
+  /// nothing; it takes the focus.
+  void splitPane(int paneId, Side side, {int? tabIndex}) {
+    final old = _pane(paneId);
+    if (old == null) return;
+    final fresh = PaneNode(_nextPaneId++);
+    if (tabIndex != null) {
+      final id = tabs[tabIndex].id;
+      for (final p in panes) {
+        if (p.tab == id) p.tab = null;
+      }
+      fresh.tab = id;
+    }
+    final before = side == Side.left || side == Side.top;
+    layout = replaceNode(
+      layout,
+      old,
+      SplitNode(
+        sideBySide: side == Side.left || side == Side.right,
+        first: before ? fresh : old,
+        second: before ? old : fresh,
+      ),
+    );
+    _fillEmpty(tabIndex ?? 0);
+    focus = fresh.id;
     notifyListeners();
   }
 
-  /// Removes pane [pane]; its tab keeps running, hidden.
-  void closePane(int pane) {
+  /// Removes pane [paneId]; its tab keeps running, hidden. The last pane
+  /// stays.
+  void closePane(int paneId) {
     if (!isSplit) return;
-    _panes = [_panes[1 - pane]];
-    focus = 0;
+    final pane = _pane(paneId);
+    if (pane == null) return;
+    final parent = parentOf(layout, pane)!;
+    final sibling = identical(parent.first, pane)
+        ? parent.second
+        : parent.first;
+    layout = replaceNode(layout, parent, sibling);
+    if (focus == paneId) focus = panesOf(sibling).first.id;
     notifyListeners();
   }
 
-  void focusPane(int pane) {
-    if (pane == focus || pane >= _panes.length) return;
-    focus = pane;
+  void focusPane(int paneId) {
+    if (paneId == focus || _pane(paneId) == null) return;
+    focus = paneId;
     notifyListeners();
   }
 
-  /// Shows tab [i] in pane [pane] (dropping a tab there). Pane 1 of a
-  /// single view splits it. A tab already shown in the other pane swaps
-  /// places with this pane's tab; a pane left without a tab shows a hidden
-  /// one, or stays empty (it never collapses: the user asked for a split).
-  void showInPane(int pane, int i) {
+  /// Shows tab [i] in pane [paneId] (a tab dropped in a pane's middle). A
+  /// tab already shown in another pane swaps places with this pane's tab;
+  /// a pane left without a tab gets a hidden one, or stays empty.
+  void showInPane(int paneId, int i) {
+    final target = _pane(paneId);
+    if (target == null) return;
     final id = tabs[i].id;
-    if (pane >= _panes.length) _panes = [_panes[0], null];
-    final other = _panes.indexOf(id);
-    if (other >= 0 && other != pane) _panes[other] = _panes[pane];
-    _panes[pane] = id;
-    for (var p = 0; p < _panes.length; p++) {
-      _panes[p] ??= _hiddenFrom(i);
-    }
-    focus = pane;
+    final from = panes.where((p) => p.tab == id).firstOrNull;
+    if (from != null && from != target) from.tab = target.tab;
+    target.tab = id;
+    _fillEmpty(i);
+    focus = paneId;
     notifyListeners();
   }
 
-  /// A split view never keeps an empty pane once a tab has gone.
-  void _dropEmptyPane() {
-    if (!isSplit || !_panes.contains(null)) return;
-    final keep = _panes.indexWhere((id) => id != null);
-    if (keep < 0) return;
-    _panes = [_panes[keep]];
-    focus = 0;
+  /// Moves the divider of [split] to [ratio] (kept between 15 and 85 %).
+  void setRatio(SplitNode split, double ratio) {
+    split.ratio = ratio.clamp(0.15, 0.85);
+    notifyListeners();
   }
 
   bool alcfLoggedIn = true;
@@ -293,13 +330,9 @@ class AppState extends ChangeNotifier {
     } else {
       tabs[i] = _makeTab(p, old.spec.cwd, old.title);
     }
-    final pane = _panes.indexOf(old.id);
-    if (pane >= 0) {
-      _panes[pane] = tabs[i].id;
-      focus = pane;
-    } else {
-      _panes[focus] = tabs[i].id;
-    }
+    final pane = panes.where((p) => p.tab == old.id).firstOrNull;
+    (pane ?? focusedPane).tab = tabs[i].id;
+    focus = (pane ?? focusedPane).id;
     _save();
     notifyListeners();
   }
@@ -346,7 +379,7 @@ class AppState extends ChangeNotifier {
 
   void _add(OpenTab t) {
     tabs.add(t);
-    _panes[focus] = t.id;
+    focusedPane.tab = t.id;
     _save();
     notifyListeners();
   }
@@ -354,25 +387,26 @@ class AppState extends ChangeNotifier {
   /// Shows tab [i]: focuses the pane already showing it, else puts it in
   /// the focused pane.
   void select(int i) {
-    final pane = _panes.indexOf(tabs[i].id);
-    if (pane >= 0) {
+    final pane = paneOf(i);
+    if (pane != null) {
       focus = pane;
     } else {
-      _panes[focus] = tabs[i].id;
+      focusedPane.tab = tabs[i].id;
     }
     notifyListeners();
   }
 
   void close(int i) {
     final id = tabs.removeAt(i).id;
-    for (var p = 0; p < _panes.length; p++) {
-      if (_panes[p] == id) _panes[p] = _hiddenFrom(i);
-    }
     if (tabs.isEmpty) {
-      _panes = [null];
-      focus = 0;
-    } else if (isSplit && _panes.contains(null)) {
-      _dropEmptyPane();
+      layout = PaneNode(_nextPaneId++);
+      focus = (layout as PaneNode).id;
+    } else {
+      for (final p in panes.where((p) => p.tab == id).toList()) {
+        p.tab = _hiddenFrom(i);
+        // A pane whose tab closed and has nothing to show goes away.
+        if (p.tab == null) closePane(p.id);
+      }
     }
     _save();
     notifyListeners();

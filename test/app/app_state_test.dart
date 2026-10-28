@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:alcfai_app/app/app_state.dart';
+import 'package:alcfai_app/app/layout.dart';
 import 'package:alcfai_app/core/alcf_cli.dart';
 import 'package:alcfai_app/core/agents.dart';
 import 'package:alcfai_app/core/app_store.dart';
@@ -246,83 +247,89 @@ void main() {
       for (final t in s.paneTabs) t?.spec.cwd,
     ];
 
-    test('split shows a hidden tab on the right and focuses it', () async {
-      final s = await three();
-      expect(shown(s), ['/c']);
-      s.toggleSplit();
-      expect(s.isSplit, isTrue);
-      expect(shown(s), ['/c', '/a']);
-      expect(s.focus, 1);
-      s.toggleSplit();
-      expect(shown(s), ['/a'], reason: 'keeps the focused pane');
-      expect(s.focus, 0);
-    });
+    int pane(AppState s, int i) => s.panes[i].id;
 
     test(
-      'split with one tab leaves the new pane empty; open fills it',
+      'split right shows a hidden tab in the new pane and focuses it',
       () async {
-        final s = make();
-        await s.refresh();
-        s.open(p(s, 'pi-alcf'), '/a');
-        s.toggleSplit();
-        expect(shown(s), ['/a', null]);
-        s.open(p(s, 'pi-alcf'), '/b');
-        expect(shown(s), ['/a', '/b']);
+        final s = await three();
+        expect(shown(s), ['/c']);
+        s.splitPane(s.focus, Side.right);
+        expect(s.isSplit, isTrue);
+        expect(shown(s), ['/c', '/a']);
+        expect(s.focusIndex, 1);
       },
     );
 
+    test('split left / top put the new pane first', () async {
+      final s = await three();
+      s.splitPane(s.focus, Side.left);
+      expect(shown(s), ['/a', '/c']);
+      expect(s.focusIndex, 0);
+      final top = s.focus;
+      s.splitPane(top, Side.bottom);
+      expect(shown(s), ['/a', '/b', '/c']);
+      final root = s.layout as SplitNode;
+      expect(root.sideBySide, isTrue);
+      expect((root.first as SplitNode).sideBySide, isFalse);
+    });
+
+    test('many splits; empty panes when tabs run out', () async {
+      final s = make();
+      await s.refresh();
+      s.open(p(s, 'pi-alcf'), '/a');
+      s.splitPane(s.focus, Side.right);
+      s.splitPane(s.focus, Side.bottom);
+      expect(shown(s), ['/a', null, null]);
+      s.open(p(s, 'pi-alcf'), '/b'); // goes to the focused (last) pane
+      expect(shown(s), ['/a', null, '/b']);
+    });
+
     test('select focuses the pane already showing a tab, else uses the focused one', () async {
       final s = await three();
-      s.toggleSplit(); // ['/c', '/a'], focus 1
-      s.select(2); // '/c' is on the left
-      expect(s.focus, 0);
-      expect(shown(s), ['/c', '/a']);
+      s.splitPane(s.focus, Side.right); // ['/c', '/a'], focus right
+      s.select(2);
+      expect(s.focusIndex, 0);
       s.select(1); // '/b' hidden: goes to the focused (left) pane
       expect(shown(s), ['/b', '/a']);
       expect(s.active, 1);
     });
 
+    test('dropping on an edge splits that pane with the dragged tab', () async {
+      final s = await three(); // shows '/c'
+      s.splitPane(s.focus, Side.right, tabIndex: 2); // drag the shown tab
+      expect(shown(s), ['/b', '/c']);
+      s.splitPane(pane(s, 0), Side.top, tabIndex: 0); // '/a' above '/b'
+      expect(shown(s), ['/a', '/b', '/c']);
+      expect(s.focusIndex, 0);
+    });
+
+    test('dragging the only tab to an edge leaves an empty pane', () async {
+      final s = make();
+      await s.refresh();
+      s.open(p(s, 'pi-alcf'), '/a');
+      s.splitPane(s.focus, Side.right, tabIndex: 0);
+      expect(shown(s), [null, '/a']);
+    });
+
     test(
-      'showInPane splits when dropped on the right; a shown tab swaps',
+      'dropping in the middle shows the tab there; a shown tab swaps',
       () async {
         final s = await three();
-        s.showInPane(1, 0); // drop '/a' on the right half
-        expect(shown(s), ['/c', '/a']);
-        expect(s.focus, 1);
-        s.showInPane(0, 0); // drop '/a' on the left: swap
-        expect(shown(s), ['/a', '/c']);
-        expect(s.focus, 0);
+        s.splitPane(s.focus, Side.right); // ['/c', '/a']
+        s.showInPane(pane(s, 0), 1); // '/b' hidden
+        expect(shown(s), ['/b', '/a']);
+        s.showInPane(pane(s, 0), 0); // '/a' shown on the right: swap
+        expect(shown(s), ['/a', '/b']);
+        expect(s.focusIndex, 0);
       },
     );
 
     test(
-      'dragging the shown tab to the right splits; the left shows another',
-      () async {
-        final s = await three(); // shows '/c'
-        s.showInPane(1, 2);
-        expect(s.isSplit, isTrue);
-        expect(shown(s), ['/b', '/c']);
-        expect(s.focus, 1);
-      },
-    );
-
-    test(
-      'dragging the only tab to the right leaves an empty left pane',
-      () async {
-        final s = make();
-        await s.refresh();
-        s.open(p(s, 'pi-alcf'), '/a');
-        s.showInPane(1, 0);
-        expect(s.isSplit, isTrue);
-        expect(shown(s), [null, '/a']);
-      },
-    );
-
-    test(
-      'closing a tab shows another hidden one, or collapses the empty pane',
+      'closing a tab shows another hidden one, or removes its pane',
       () async {
         final s = await three();
-        s.toggleSplit(); // ['/c', '/a']
+        s.splitPane(s.focus, Side.right); // ['/c', '/a']
         s.close(0); // '/a' closes; '/b' is hidden and takes its place
         expect(shown(s), ['/c', '/b']);
         s.close(0); // '/b' closes; nothing hidden left
@@ -333,16 +340,29 @@ void main() {
       },
     );
 
-    test('closePane keeps the other pane; restart stays in its pane', () async {
+    test(
+      'closePane keeps the tab running; the sibling takes the space',
+      () async {
+        final s = await three();
+        s.splitPane(s.focus, Side.right);
+        s.splitPane(s.focus, Side.bottom); // ['/c', '/a', '/b']
+        s.closePane(pane(s, 1));
+        expect(shown(s), ['/c', '/b']);
+        expect(s.tabs.length, 3);
+        expect(s.focusIndex, 1);
+      },
+    );
+
+    test('restart stays in its pane; ratio is clamped', () async {
       final s = await three();
-      s.toggleSplit(); // ['/c', '/a']
+      s.splitPane(s.focus, Side.right); // ['/c', '/a']
       s.markExited(s.tabs[0], 0);
       s.restart(0);
       expect(shown(s), ['/c', '/a']);
-      expect(s.focus, 1);
-      s.closePane(1);
-      expect(shown(s), ['/c']);
-      expect(s.tabs.length, 3, reason: 'tabs stay open');
+      expect(s.focusIndex, 1);
+      final root = s.layout as SplitNode;
+      s.setRatio(root, 0.99);
+      expect(root.ratio, 0.85);
     });
   });
 }

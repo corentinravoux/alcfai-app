@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:alcfai_app/ui/sidebar.dart';
 import 'package:alcfai_app/app/app_state.dart';
+import 'package:alcfai_app/app/layout.dart';
 import 'package:alcfai_app/core/alcf_cli.dart';
 import 'package:alcfai_app/core/app_store.dart';
 import 'package:alcfai_app/core/guard.dart';
@@ -296,17 +297,39 @@ void main() {
       return state;
     }
 
-    testWidgets('split button shows two sessions; closing a pane keeps both', (
+    // Terminal area of the 1280x800 test window: x 260..1280, y ~81..800.
+    Future<void> dragTab(WidgetTester tester, int i, Offset to) async {
+      final from = tester.getCenter(find.byKey(ValueKey('tab-chip-$i')));
+      final g = await tester.startGesture(from);
+      await g.moveBy(const Offset(30, 30));
+      await tester.pump();
+      await g.moveTo(to);
+      await tester.pump();
+      await g.moveTo(to + const Offset(1, 1));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+    }
+
+    testWidgets('split right / down buttons; closing a pane keeps tabs', (
       tester,
     ) async {
       final state = await twoTabs(tester);
       expect(find.byType(TerminalTab), findsOneWidget);
       final ptys = started.length;
-      await tester.tap(find.byKey(const ValueKey('split-toggle')));
+      await tester.tap(find.byKey(const ValueKey('split-right-0')));
       await tester.pump();
-      expect(state.isSplit, isTrue);
       expect(find.byType(TerminalTab), findsNWidgets(2));
+      await tester.tap(find.byKey(const ValueKey('split-down-1')));
+      await tester.pump();
+      expect(state.panes.length, 3);
+      expect(
+        find.text('Open an agent from the left, or drag a tab here.'),
+        findsOneWidget,
+      );
       expect(started.length, ptys, reason: 'no session restarted');
+      await tester.tap(find.byKey(const ValueKey('close-pane-2')));
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('close-pane-1')));
       await tester.pump();
       expect(state.isSplit, isFalse);
@@ -314,76 +337,53 @@ void main() {
       expect(find.byType(TerminalTab), findsOneWidget);
     });
 
-    testWidgets('dragging a tab to the right half splits the view', (
-      tester,
-    ) async {
-      final state = await twoTabs(tester);
-      final ptys = started.length;
-      // Tab 0 is hidden; drop it on the right of the terminal area.
-      final from = tester.getCenter(find.byKey(const ValueKey('tab-chip-0')));
-      final g = await tester.startGesture(from);
-      await g.moveBy(const Offset(30, 30));
-      await tester.pump();
-      await g.moveTo(const Offset(1100, 450));
-      await tester.pump();
-      expect(find.text('Split right'), findsOneWidget);
-      await g.up();
-      await tester.pump();
-      expect(state.isSplit, isTrue);
-      expect(state.paneTabs.map((t) => t?.id), [
-        state.tabs[1].id,
-        state.tabs[0].id,
-      ]);
-      expect(state.focus, 1);
-      expect(started.length, ptys, reason: 'no session restarted');
-    });
-
-    testWidgets('dragging the shown tab to the right splits the view', (
+    testWidgets('dragging a tab to the right edge splits right', (
       tester,
     ) async {
       final state = await twoTabs(tester); // shows tab 1
-      final from = tester.getCenter(find.byKey(const ValueKey('tab-chip-1')));
-      final g = await tester.startGesture(from);
-      await g.moveBy(const Offset(30, 30));
-      await tester.pump();
-      await g.moveTo(const Offset(1100, 450));
-      await tester.pump();
-      await g.up();
-      await tester.pump();
+      final ptys = started.length;
+      await dragTab(tester, 1, const Offset(1240, 450));
       expect(state.isSplit, isTrue);
+      expect((state.layout as SplitNode).sideBySide, isTrue);
+      expect(state.paneTabs.map((t) => t?.id), [
+        state.tabs[0].id,
+        state.tabs[1].id,
+      ]);
       expect(find.byType(TerminalTab), findsNWidgets(2));
+      expect(started.length, ptys, reason: 'no session restarted');
+    });
+
+    testWidgets('dragging a tab to the bottom edge splits down', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester);
+      await dragTab(tester, 0, const Offset(770, 780));
+      expect((state.layout as SplitNode).sideBySide, isFalse);
+      expect(state.paneTabs.last!.id, state.tabs[0].id);
+    });
+
+    testWidgets('dragging a tab to the middle of a pane shows it there', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester); // shows tab 1
+      await dragTab(tester, 0, const Offset(770, 450));
+      expect(state.isSplit, isFalse);
+      expect(state.paneTabs.single!.id, state.tabs[0].id);
     });
 
     testWidgets('clicking a pane focuses it; tabs then open there', (
       tester,
     ) async {
       final state = await twoTabs(tester);
-      state.toggleSplit(); // [tab1 | tab0], focus right
+      state.splitPane(state.focus, Side.right); // [tab1 | tab0], focus right
       await tester.pump();
       await tester.tapAt(const Offset(500, 450)); // left pane
       await tester.pump();
-      expect(state.focus, 0);
+      expect(state.focusIndex, 0);
       state.open(state.profiles.first, tmp.path);
       await tester.pump();
       expect(state.paneTabs.first!.id, state.tabs.last.id);
       await tester.pump(const Duration(seconds: 1)); // xterm's tap timer
-    });
-
-    testWidgets('split with one tab shows an empty pane that can close', (
-      tester,
-    ) async {
-      final state = await pump(tester, makeState());
-      state.open(state.profiles.first, tmp.path);
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('split-toggle')));
-      await tester.pump();
-      expect(
-        find.text('Open an agent from the left, or drag a tab here.'),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const ValueKey('close-empty-pane')));
-      await tester.pump();
-      expect(state.isSplit, isFalse);
     });
   });
 }
