@@ -74,28 +74,125 @@ LaunchSpec buildLaunch(
   return LaunchSpec(executable: exePath, args: args, env: env, cwd: cwd);
 }
 
-/// `--model <provider>/<model>` for pi, found in the sandbox models.json
-/// (alcf-ai names providers `alcf-inference-service-<cluster>-<framework>`).
-/// Empty when nothing matches, so pi falls back to its own default.
-List<String> piModelArgs(Sandbox sandbox, AgentChoice? choice) {
+/// Folders agent installers use but a desktop session's PATH often lacks
+/// (they are added in ~/.bashrc, which a menu launch never reads).
+const kAgentBinDirs = [
+  '.local/bin',
+  '.opencode/bin',
+  '.bun/bin',
+  '.npm-global/bin',
+  '.cargo/bin',
+];
+
+/// The parent PATH followed by every existing [kAgentBinDirs] folder not
+/// already on it.
+String agentPath(Map<String, String> env, String realHome) {
+  final dirs = [
+    for (final d in (env['PATH'] ?? '').split(':'))
+      if (d.isNotEmpty) d,
+  ];
+  for (final d in kAgentBinDirs) {
+    final full = '$realHome/$d';
+    if (!dirs.contains(full) && Directory(full).existsSync()) dirs.add(full);
+  }
+  return dirs.join(':');
+}
+
+/// Flags that keep an agent inside what the ALCF gateway accepts.
+///
+/// Codex 0.165 sends tool types the ALCF responses endpoint rejects with
+/// HTTP 400: `namespace` (from the multi_agent feature) and `web_search`.
+/// The third one, the freeform apply_patch tool, is set per model in the
+/// catalogs and cleared after configure ([clearFreeformApplyPatch]).
+List<String> alcfCompatArgs(AgentKind kind) => switch (kind) {
+  AgentKind.codex => const [
+    '--disable',
+    'multi_agent',
+    '-c',
+    'web_search="disabled"',
+  ],
+  _ => const [],
+};
+
+/// Sets `apply_patch_tool_type` to null in every codex catalog under [dir],
+/// so codex stops sending the grammar-format apply_patch tool that the ALCF
+/// gateway rejects (codex only accepts "freeform" or null there). Unreadable
+/// files are left alone.
+Future<void> clearFreeformApplyPatch(String dir) async {
+  final d = Directory(dir);
+  if (!d.existsSync()) return;
+  await for (final f in d.list()) {
+    if (f is! File || !f.path.endsWith('.json')) continue;
+    try {
+      final v = jsonDecode(await f.readAsString());
+      var changed = false;
+      for (final m in (v as Map)['models'] as List) {
+        if (m is Map && m['apply_patch_tool_type'] == 'freeform') {
+          m['apply_patch_tool_type'] = null;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await f.writeAsString(const JsonEncoder.withIndent('  ').convert(v));
+      }
+    } on Object {
+      // Not a catalog we understand.
+    }
+  }
+}
+
+/// Launch arguments that select the remembered cluster and model.
+///
+/// alcf-ai names providers `alcf-inference-service-<cluster>-<framework>`:
+/// pi and opencode take `--model <provider>/<model>`; codex takes the
+/// per-model profile alcf-ai writes, `-p alcf-<cluster>-<model>`. Claude
+/// needs nothing (configure writes the model into its settings). Empty when
+/// nothing matches, so the agent falls back to its own default.
+List<String> modelArgs(AgentKind kind, Sandbox sandbox, AgentChoice? choice) {
   if (choice == null) return const [];
   try {
-    final v = jsonDecode(
-      File('${sandbox.home}/.pi/agent/models.json').readAsStringSync(),
-    );
-    final providers = (v as Map)['providers'] as Map;
-    for (final e in providers.entries) {
-      final key = '${e.key}';
-      if (!key.startsWith('alcf-inference-service-${choice.cluster}-')) {
-        continue;
-      }
-      final models = (e.value as Map)['models'] as List? ?? const [];
-      if (models.any((m) => m is Map && m['id'] == choice.model)) {
-        return ['--model', '$key/${choice.model}'];
-      }
+    switch (kind) {
+      case AgentKind.claude:
+        return const [];
+      case AgentKind.codex:
+        final name =
+            'alcf-${choice.cluster}-${choice.model.replaceAll('/', '-')}';
+        return File('${sandbox.home}/.codex/$name.config.toml').existsSync()
+            ? ['-p', name]
+            : const [];
+      case AgentKind.pi:
+        final v = _readJson('${sandbox.home}/.pi/agent/models.json');
+        return _providerArgs(v['providers'], choice, (models) {
+          return models is List &&
+              models.any((m) => m is Map && m['id'] == choice.model);
+        });
+      case AgentKind.opencode:
+        final v = _readJson(sandbox.overrideValue(kind));
+        return _providerArgs(v['provider'] ?? v['providers'], choice, (models) {
+          return models is Map && models.containsKey(choice.model);
+        });
     }
   } on Object {
-    // No sandbox config yet: let pi choose.
+    // No sandbox config yet: let the agent choose.
+  }
+  return const [];
+}
+
+Map _readJson(String path) => jsonDecode(File(path).readAsStringSync()) as Map;
+
+List<String> _providerArgs(
+  Object? providers,
+  AgentChoice choice,
+  bool Function(Object? models) serves,
+) {
+  if (providers is! Map) return const [];
+  for (final e in providers.entries) {
+    final key = '${e.key}';
+    if (key.startsWith('alcf-inference-service-${choice.cluster}-') &&
+        e.value is Map &&
+        serves((e.value as Map)['models'])) {
+      return ['--model', '$key/${choice.model}'];
+    }
   }
   return const [];
 }

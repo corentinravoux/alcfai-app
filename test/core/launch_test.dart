@@ -108,15 +108,104 @@ void main() {
   "alcf-inference-service-sophia-vllm": {"models": [{"id": "openai/gpt-oss-120b"}]},
   "alcf-inference-service-minerva-api": {"models": [{"id": "gpt-oss-120b"}, {"id": "inkling-bf16"}]}
 }}""");
-    expect(piModelArgs(box, const AgentChoice('minerva', 'inkling-bf16')), [
-      '--model',
-      'alcf-inference-service-minerva-api/inkling-bf16',
-    ]);
     expect(
-      piModelArgs(box, const AgentChoice('sophia', 'openai/gpt-oss-120b')),
+      modelArgs(
+        AgentKind.pi,
+        box,
+        const AgentChoice('minerva', 'inkling-bf16'),
+      ),
+      ['--model', 'alcf-inference-service-minerva-api/inkling-bf16'],
+    );
+    expect(
+      modelArgs(
+        AgentKind.pi,
+        box,
+        const AgentChoice('sophia', 'openai/gpt-oss-120b'),
+      ),
       ['--model', 'alcf-inference-service-sophia-vllm/openai/gpt-oss-120b'],
     );
-    expect(piModelArgs(box, const AgentChoice('tara', 'x')), isEmpty);
-    expect(piModelArgs(box, null), isEmpty);
+    expect(
+      modelArgs(AgentKind.pi, box, const AgentChoice('tara', 'x')),
+      isEmpty,
+    );
+    expect(modelArgs(AgentKind.pi, box, null), isEmpty);
+  });
+
+  test('modelArgs for opencode reads provider (v1) or providers (v2)', () {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_oc_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final box = Sandbox(root: '${tmp.path}/home', realHome: tmp.path);
+    final f = File('${box.home}/.config/opencode/opencode.jsonc')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(
+        '{"provider": {"alcf-inference-service-minerva-api": {"models": {"gpt-oss-120b": {}}}}}',
+      );
+    const c = AgentChoice('minerva', 'gpt-oss-120b');
+    expect(modelArgs(AgentKind.opencode, box, c), [
+      '--model',
+      'alcf-inference-service-minerva-api/gpt-oss-120b',
+    ]);
+    f.writeAsStringSync(
+      '{"providers": {"alcf-inference-service-sophia-vllm": {"models": {"openai/gpt-oss-120b": {}}}}}',
+    );
+    expect(
+      modelArgs(
+        AgentKind.opencode,
+        box,
+        const AgentChoice('sophia', 'openai/gpt-oss-120b'),
+      ),
+      ['--model', 'alcf-inference-service-sophia-vllm/openai/gpt-oss-120b'],
+    );
+    expect(modelArgs(AgentKind.opencode, box, c), isEmpty);
+  });
+
+  test('modelArgs for codex uses the alcf-ai profile file', () {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_cx_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final box = Sandbox(root: '${tmp.path}/home', realHome: tmp.path);
+    File('${box.home}/.codex/alcf-minerva-gpt-oss-120b.config.toml')
+        .createSync(recursive: true);
+    expect(
+      modelArgs(
+        AgentKind.codex,
+        box,
+        const AgentChoice('minerva', 'gpt-oss-120b'),
+      ),
+      ['-p', 'alcf-minerva-gpt-oss-120b'],
+    );
+    expect(
+      modelArgs(AgentKind.codex, box, const AgentChoice('minerva', 'x')),
+      isEmpty,
+    );
+    expect(
+      modelArgs(AgentKind.claude, box, const AgentChoice('minerva', 'x')),
+      isEmpty,
+    );
+  });
+
+  test('agentPath appends existing agent install folders once', () {
+    final tmp = Directory.systemTemp.createTempSync('alcfai_path_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final h = tmp.path;
+    for (final d in ['.local/bin', '.opencode/bin']) {
+      Directory('$h/$d').createSync(recursive: true);
+    }
+    expect(
+      agentPath({'PATH': '/bin:$h/.local/bin'}, h),
+      '/bin:$h/.local/bin:$h/.opencode/bin',
+    );
+    expect(agentPath({}, h), '$h/.local/bin:$h/.opencode/bin');
+  });
+
+  test('alcfCompatArgs turns off the codex tools ALCF rejects', () {
+    expect(alcfCompatArgs(AgentKind.codex), [
+      '--disable',
+      'multi_agent',
+      '-c',
+      'web_search="disabled"',
+    ]);
+    for (final k in [AgentKind.claude, AgentKind.pi, AgentKind.opencode]) {
+      expect(alcfCompatArgs(k), isEmpty, reason: k.name);
+    }
   });
 }

@@ -162,8 +162,11 @@ class AppState extends ChangeNotifier {
       exePath: s.exePath!,
       cwd: cwd,
       sessionId: const Uuid().v4(),
-      args: p.isAlcf && p.kind == AgentKind.pi
-          ? piModelArgs(sandbox, choiceFor(p))
+      args: p.isAlcf
+          ? [
+              ...alcfCompatArgs(p.kind),
+              ...modelArgs(p.kind, sandbox, choiceFor(p)),
+            ]
           : const [],
     );
     return OpenTab(

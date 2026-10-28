@@ -116,10 +116,17 @@ class AlcfCli {
     String cluster, {
     AgentKind? forAgent,
   }) async {
-    final r = await runner.run(alcfExe, ['ls-models', cluster], env: _cleanEnv);
+    // alcf-ai prints through rich, which wraps long lines at the terminal
+    // width, inserting raw newlines inside JSON strings. Ask for wide output,
+    // and drop any newline left (outside strings it is only whitespace).
+    final r = await runner.run(
+      alcfExe,
+      ['ls-models', cluster],
+      env: {..._cleanEnv, 'COLUMNS': '100000'},
+    );
     final List<dynamic> raw;
     try {
-      final v = jsonDecode(r.stdout);
+      final v = jsonDecode(r.stdout.replaceAll(RegExp(r'[\r\n]'), ' '));
       if (v is! List) return [];
       raw = v;
     } on FormatException {
@@ -145,8 +152,15 @@ class AlcfCli {
         ),
       );
     }
-    if (forAgent == AgentKind.claude) {
-      return models.where((m) => m.protocols.contains('messages')).toList();
+    // Claude speaks the Anthropic messages API; codex (> 0.94) only the
+    // responses API, and alcf-ai skips providers without it.
+    final needs = switch (forAgent) {
+      AgentKind.claude => 'messages',
+      AgentKind.codex => 'responses',
+      _ => null,
+    };
+    if (needs != null) {
+      return models.where((m) => m.protocols.contains(needs)).toList();
     }
     return models;
   }
@@ -206,6 +220,9 @@ class AlcfCli {
     final touched = await guard.changedSince(before);
     if (touched.isNotEmpty) return RealConfigTouched(touched);
     if (r.exitCode != 0) return ConfigureFailed(explainError(r.stderr));
+    if (kind == AgentKind.codex) {
+      await clearFreeformApplyPatch('${sandbox.home}/.codex/catalogs');
+    }
     return const ConfigureOk();
   }
 }

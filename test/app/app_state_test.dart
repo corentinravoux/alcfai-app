@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:alcfai_app/app/app_state.dart';
 import 'package:alcfai_app/core/alcf_cli.dart';
+import 'package:alcfai_app/core/agents.dart';
 import 'package:alcfai_app/core/app_store.dart';
 import 'package:alcfai_app/core/guard.dart';
 import 'package:alcfai_app/core/launch.dart';
@@ -79,6 +80,32 @@ void main() {
     await s.refresh();
     s.open(p(s, 'pi-alcf'), tmp.path);
     expect(s.tabs.single.spec.args, [
+      '--model',
+      'alcf-inference-service-minerva-api/gpt-oss-120b',
+    ]);
+  });
+
+  test('open codex and opencode pass the remembered model', () async {
+    File('${sb.home}/.codex/alcf-minerva-gpt-oss-120b.config.toml')
+        .createSync(recursive: true);
+    File('${sb.home}/.config/opencode/opencode.jsonc')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(
+        '{"provider": {"alcf-inference-service-minerva-api": {"models": {"gpt-oss-120b": {}}}}}',
+      );
+    const c = AgentChoice('minerva', 'gpt-oss-120b');
+    store.choices['codex-alcf'] = c;
+    store.choices['opencode-alcf'] = c;
+    final s = make();
+    await s.refresh();
+    s.open(p(s, 'codex-alcf'), tmp.path);
+    s.open(p(s, 'opencode-alcf'), tmp.path);
+    expect(s.tabs[0].spec.args, [
+      ...alcfCompatArgs(AgentKind.codex),
+      '-p',
+      'alcf-minerva-gpt-oss-120b',
+    ]);
+    expect(s.tabs[1].spec.args, [
       '--model',
       'alcf-inference-service-minerva-api/gpt-oss-120b',
     ]);

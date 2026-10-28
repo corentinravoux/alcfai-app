@@ -58,9 +58,19 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync('{"providers": {"alcf-inference-service-x": {}}}');
     expect(sb.isConfigured(AgentKind.pi), isTrue);
-    File('$h/.codex/config.toml').createSync(recursive: true);
+    File('$h/.codex/config.toml')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('model = "x"');
+    expect(sb.isConfigured(AgentKind.codex), isFalse);
+    File('$h/.codex/config.toml')
+        .writeAsStringSync('[model_providers.alcf-inference-service-x]');
     expect(sb.isConfigured(AgentKind.codex), isTrue);
-    File('$h/.config/opencode/opencode.jsonc').createSync(recursive: true);
+    File('$h/.config/opencode/opencode.jsonc')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('{}');
+    expect(sb.isConfigured(AgentKind.opencode), isFalse);
+    File('$h/.config/opencode/opencode.jsonc')
+        .writeAsStringSync('{"provider": {"alcf-inference-service-x": {}}}');
     expect(sb.isConfigured(AgentKind.opencode), isTrue);
   });
 

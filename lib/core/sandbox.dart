@@ -51,8 +51,14 @@ class Sandbox {
       '$home/.pi/agent/models.json',
       'alcf-inference-service-',
     ),
-    AgentKind.codex => File('$home/.codex/config.toml').existsSync(),
-    AgentKind.opencode => File(overrideValue(k)).existsSync(),
+    AgentKind.codex => _contains(
+      '$home/.codex/config.toml',
+      'alcf-inference-service-',
+    ),
+    AgentKind.opencode => _contains(
+      overrideValue(k),
+      'alcf-inference-service-',
+    ),
   };
 
   /// True when `install.sh --alcf` has linked the shared CLAUDE.md.

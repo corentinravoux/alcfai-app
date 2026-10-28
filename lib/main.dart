@@ -16,8 +16,13 @@ import 'ui/home_page.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
-  final env = Platform.environment;
-  final realHome = env['HOME']!;
+  final realHome = Platform.environment['HOME']!;
+  // Agents installed in ~/.opencode/bin and the like are often missing from
+  // a desktop session's PATH: add them for lookup, configure and launch.
+  final env = {
+    ...Platform.environment,
+    'PATH': agentPath(Platform.environment, realHome),
+  };
   final sandbox = Sandbox(
     root: '$realHome/.local/share/alcfai/home',
     realHome: realHome,

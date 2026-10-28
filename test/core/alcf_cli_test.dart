@@ -153,6 +153,29 @@ void main() {
     expect(configureCalls().map((c) => c.args[2]), ['pi', 'codex', 'opencode']);
   });
 
+  test(
+    'configure codex drops freeform apply_patch from the catalogs',
+    () async {
+      final cat = File('${sb.home}/.codex/catalogs/m.json');
+      runner.handlers['/bin/alcf-ai agent configure codex'] = (_) {
+        cat
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            jsonEncode({
+              'models': [
+                {'slug': 'm', 'apply_patch_tool_type': 'freeform'},
+              ],
+            }),
+          );
+        File('${sb.home}/.codex/catalogs/broken.json').writeAsStringSync('{');
+        return const RunResult(0, '', '');
+      };
+      expect(await cli().configure(AgentKind.codex), isA<ConfigureOk>());
+      final m = (jsonDecode(cat.readAsStringSync())['models'] as List).single;
+      expect(m, {'slug': 'm', 'apply_patch_tool_type': null});
+    },
+  );
+
   test('configure adds --include-experimental when asked', () async {
     await cli().configure(
       AgentKind.pi,
@@ -239,7 +262,23 @@ void main() {
       forAgent: AgentKind.claude,
     );
     expect(claude.map((m) => m.id), ['beam-1.0-bf16']);
+    final codex = await cli().listModels('minerva', forAgent: AgentKind.codex);
+    expect(codex.map((m) => m.id), ['beam-1.0-bf16']);
   });
+
+  test(
+    'listModels survives rich line wrapping and asks for wide output',
+    () async {
+      runner.handlers['/bin/alcf-ai ls-models minerva'] = (_) =>
+          const RunResult(
+            0,
+            '[{"id": "m", "display_name": "M", "description": "served through ALCF\nMinerva"}]',
+            '',
+          );
+      expect((await cli().listModels('minerva')).map((m) => m.id), ['m']);
+      expect(runner.calls.last.env!['COLUMNS'], '100000');
+    },
+  );
 
   test('listModels returns empty list on bad JSON', () async {
     runner.handlers['/bin/alcf-ai ls-models'] = (_) =>

@@ -36,7 +36,8 @@ reports any change.
 | Ctrl+click on a link | open it in the browser |
 
 Plain Ctrl+A, Ctrl+C and Ctrl+V go to the agent. Configure remembers the
-cluster and model per agent (Pi starts on it with `--model`). The app warns
+cluster and model per agent (Pi and OpenCode start on it with `--model`,
+Codex with `-p alcf-<cluster>-<model>`). The app warns
 when that model is queued or offline, asks before closing a running session,
 offers Restart on an ended one, and offers to reopen last run's sessions.
 It re-checks the ALCF login every 3 hours. Its own state lives in
@@ -50,6 +51,17 @@ It re-checks the ALCF login every 3 hours. Its own state lives in
 ~/Software/flutter/bin/flutter run -d linux
 ./scripts/install-linux.sh        # release build + desktop entry
 ```
+
+Agents are looked up on `PATH` plus `~/.local/bin`, `~/.opencode/bin`,
+`~/.bun/bin`, `~/.npm-global/bin` and `~/.cargo/bin`, since a menu launch
+does not read `~/.bashrc`.
+
+Codex needs three workarounds for the ALCF gateway, which the app applies
+(sandbox only): after configure it sets `apply_patch_tool_type` to null in
+`<sandbox>/.codex/catalogs/*.json`, and it launches codex with
+`--disable multi_agent -c web_search="disabled"`. Codex only gets Minerva
+models (the only cluster serving the `responses` API). See
+[docs/e2e-2026-10-28-codex-opencode.md](docs/e2e-2026-10-28-codex-opencode.md).
 
 Needs `alcf-ai` and `alcf-tokens` on `PATH` (`uv tool install alcf-ai`,
 `uv tool install alcf-tokens`) and a login (`alcf-tokens login inference`).
