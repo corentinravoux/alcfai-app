@@ -139,15 +139,18 @@ class AppState extends ChangeNotifier {
 
   /// Shows tab [i] in pane [pane] (dropping a tab there). Pane 1 of a
   /// single view splits it. A tab already shown in the other pane swaps
-  /// places with this pane's tab.
+  /// places with this pane's tab; a pane left without a tab shows a hidden
+  /// one, or stays empty (it never collapses: the user asked for a split).
   void showInPane(int pane, int i) {
     final id = tabs[i].id;
     if (pane >= _panes.length) _panes = [_panes[0], null];
     final other = _panes.indexOf(id);
     if (other >= 0 && other != pane) _panes[other] = _panes[pane];
     _panes[pane] = id;
+    for (var p = 0; p < _panes.length; p++) {
+      _panes[p] ??= _hiddenFrom(i);
+    }
     focus = pane;
-    _dropEmptyPane();
     notifyListeners();
   }
 

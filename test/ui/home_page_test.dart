@@ -338,6 +338,22 @@ void main() {
       expect(started.length, ptys, reason: 'no session restarted');
     });
 
+    testWidgets('dragging the shown tab to the right splits the view', (
+      tester,
+    ) async {
+      final state = await twoTabs(tester); // shows tab 1
+      final from = tester.getCenter(find.byKey(const ValueKey('tab-chip-1')));
+      final g = await tester.startGesture(from);
+      await g.moveBy(const Offset(30, 30));
+      await tester.pump();
+      await g.moveTo(const Offset(1100, 450));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      expect(state.isSplit, isTrue);
+      expect(find.byType(TerminalTab), findsNWidgets(2));
+    });
+
     testWidgets('clicking a pane focuses it; tabs then open there', (
       tester,
     ) async {

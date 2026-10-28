@@ -296,6 +296,29 @@ void main() {
     );
 
     test(
+      'dragging the shown tab to the right splits; the left shows another',
+      () async {
+        final s = await three(); // shows '/c'
+        s.showInPane(1, 2);
+        expect(s.isSplit, isTrue);
+        expect(shown(s), ['/b', '/c']);
+        expect(s.focus, 1);
+      },
+    );
+
+    test(
+      'dragging the only tab to the right leaves an empty left pane',
+      () async {
+        final s = make();
+        await s.refresh();
+        s.open(p(s, 'pi-alcf'), '/a');
+        s.showInPane(1, 0);
+        expect(s.isSplit, isTrue);
+        expect(shown(s), [null, '/a']);
+      },
+    );
+
+    test(
       'closing a tab shows another hidden one, or collapses the empty pane',
       () async {
         final s = await three();
