@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// Keys copied from the shared claude_config settings into the ALCF Claude.
+/// Keys copied from the user's Claude settings into the ALCF Claude.
 const kSeedKeys = ['outputStyle', 'theme', 'permissions', 'statusLine'];
 
 /// Keys copied only when "Include plugins & hooks" is on.

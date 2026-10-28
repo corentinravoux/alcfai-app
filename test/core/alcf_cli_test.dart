@@ -74,7 +74,7 @@ void main() {
     realHome = '${tmp.path}/home';
     Directory('$realHome/.globus').createSync(recursive: true);
     Directory('$realHome/.claude/plugins').createSync(recursive: true);
-    sharedPath = '$realHome/Software/claude_config/claude/settings.json';
+    sharedPath = '$realHome/.claude/settings.json';
     File(sharedPath)
       ..createSync(recursive: true)
       ..writeAsStringSync(

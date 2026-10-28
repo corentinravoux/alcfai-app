@@ -1,7 +1,7 @@
 // End-to-end check of the configure path against the real alcf-ai.
 // Writes only into ~/.local/share/alcfai/home; prints the guard verdict.
 //
-//   ~/Software/flutter/bin/dart run tool/e2e_configure.dart claude pi
+//   dart run tool/e2e_configure.dart claude pi
 import 'dart:io';
 
 import 'package:alcfai_app/core/agents.dart';

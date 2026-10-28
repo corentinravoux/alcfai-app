@@ -51,9 +51,10 @@ Future<void> main() async {
           parentEnv: env,
         );
 
-  final defaultCwd = Directory('$realHome/Documents/Python').existsSync()
-      ? '$realHome/Documents/Python'
-      : realHome;
+  // New sessions start in the last folder used, else the home folder.
+  final defaultCwd =
+      store.recentFolders.where((f) => Directory(f).existsSync()).firstOrNull ??
+      realHome;
 
   final state = AppState(
     profiles: defaultProfiles(realHome, accounts: accounts),

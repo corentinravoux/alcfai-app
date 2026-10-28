@@ -214,6 +214,5 @@ flutter run -d linux
 dart run tool/e2e_configure.dart claude pi   # real configure into the app folder
 ```
 
-Design: [docs/design.md](docs/design.md). Plan: [docs/plan.md](docs/plan.md).
 End-to-end records: [docs/e2e-2026-10-27.md](docs/e2e-2026-10-27.md),
 [docs/e2e-2026-10-28-codex-opencode.md](docs/e2e-2026-10-28-codex-opencode.md).
