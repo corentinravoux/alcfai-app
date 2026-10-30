@@ -11,6 +11,11 @@ import 'sandbox.dart';
 /// and alcf-ai disables it for tool calls.
 const kClusters = ['minerva', 'sophia', 'tara'];
 
+/// Models ALCF serves that `alcf-ai agent configure` does not allowlist yet.
+/// Configure adds `--include-experimental` for them, or codex, pi and
+/// opencode leave them out. Drop an entry once alcf-ai lists it.
+const kNotYetAllowlisted = {'mistral-large-4-nvfp4'};
+
 enum ModelStatus { running, queued, offline, unknown }
 
 class AlcfModel {
@@ -213,7 +218,8 @@ class AlcfCli {
         model,
         '-c',
         cluster,
-        if (experimental) '--include-experimental',
+        if (experimental || kNotYetAllowlisted.contains(model))
+          '--include-experimental',
       ],
       env: {..._cleanEnv, 'HOME': sandbox.home, 'UV_CACHE_DIR': uvCacheDir},
     );

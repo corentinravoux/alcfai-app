@@ -195,6 +195,12 @@ void main() {
     ]);
   });
 
+  test('configure adds --include-experimental for a model alcf-ai does not '
+      'allowlist yet', () async {
+    await cli().configure(AgentKind.pi, model: 'mistral-large-4-nvfp4');
+    expect(configureCalls().single.args, contains('--include-experimental'));
+  });
+
   test('configure returns LoginNeeded when token check fails', () async {
     runner.handlers['/bin/alcf-tokens get-token inference'] = (_) =>
         const RunResult(1, '', 'no tokens');
